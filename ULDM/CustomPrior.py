@@ -39,6 +39,7 @@ class CustomPrior(object):
             logL += -(h0 - self.h0_mean)**2 / self.h0_sigma**2 / 2
         ## Uniform priors
         if self._log_scatter is True:
+            ## Remove lambda MSD parameters
             #  lambda_mst_sigma = kwargs_lens.get('lambda_mst_sigma', 1)
             #  logL += np.log(1/lambda_mst_sigma)
             #  lambda_ifu_sigma = kwargs_lens.get('lambda_ifu_sigma', 1)

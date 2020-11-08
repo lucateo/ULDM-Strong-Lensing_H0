@@ -1,3 +1,22 @@
+#####################################################
+# Important things: the program takes single lens posterior data from pre-computed
+# files; I removed all the sampling and options related to lambda MST (and set it
+# to one where it is used explicitly); the important option to look at is
+# run_chains, which is a bool; if set to True, it performs the MCMC, otherwise
+# the program creates the final plot from pre-computed file in this folder, if
+# present. The running of the MCMC is at the end, given by the MCMCSampler function
+# and related.
+# Right now, this program, with run_chains = False, plots the plot for TDCOSMO only
+# lenses (mostly here for validation) and all the lenses; if you want to recompute
+# the MCMC, remember to:
+# - Set run_chains = True
+# - Change n_walkers, n_burn, n_run (keep them low if you just want to validate the code,
+#   otherwise increase their values, at the cost of computation times much bigger
+# - Comment the lens analysis you don't want (as an example, if you want to compute
+#   with only the TDCOSMO lenses, comment the part which does the MCMC chain for all
+#   lenses).
+######################################################
+
 # some standard python imports #
 import copy
 import numpy as np
@@ -43,22 +62,16 @@ file_name_slacs_los = os.path.join(path2Analysis, path2slacs, 'LineOfSightData.c
 # Anisotropy model choice and distribution of parameters
 anisotropy_model = 'OM' # 'OM', 'GOM' or 'const'; OM = Ossikptov-Merrit
 anisotropy_distribution = 'GAUSSIAN'  # 'NONE' or 'GAUSSIAN'; this is the ditribution followed by the scatter in the posterior of a_ani
-
 all_slacs_sample = True  # bool, if True, uses all SLACS lenses, also those without individual lensing-only power-law slope measurements and applies to those the population distribution prior
 
+# Various options
 num_distribution_draw = 100  # number of draws from the hyper-parameter distribution in computing the Monte Carlo integral marginalization
-
-############# IT WAS TRUE BEFORE
+# We don't need MST at all
 ifu_mst_sampling_separate = False  # if True, samples a separate MST parameter for the IFU lenses, this is due to the fact that the IFU observations are processed with a single star spectral template only.
-#############
-
+lambda_slope = False  # allow for linear scaling of lambda_int with r_eff/theta_E
 sigma_v_systematics = True  # bool, if True, samples an additional uncorrelated Gaussian uncertainty on all the velocity dispersion measurements of the SDSS data
 
-############# IT WAS TRUE BEFORE
-lambda_slope = False  # allow for linear scaling of lambda_int with r_eff/theta_E
-#############
-
-## On the original file it is called differently
+# Prior options
 planck_prior = True  # if True, sets a Gaussian prior with CMB value
 log_scatter = True  # scatter parameters sampled in log space with linear prior in log space
 
@@ -110,7 +123,6 @@ ifu_names_all = ['SDSSJ1627-0053', 'SDSSJ2303+1422', 'SDSSJ1250+0523', 'SDSSJ120
 #if ifu_mst_sampling_separate is True:
 sdss_names_quality += ifu_names_quality
 sdss_names_all += ifu_names_all
-
 # this is for saving the chains under different names
 if ifu_mst_sampling_separate is True:
     model_prefix = 'ifu_separate'
@@ -120,14 +132,11 @@ if lambda_slope is True:
     lambda_prefix = '_slope'
 else:
     lambda_prefix = ''
-
 if planck_prior is True:
     lambda_prefix += '_planck'
 if log_scatter is True:
     lambda_prefix += '_log_scatter'
 
-# Function to extract parameters from pre-computed csv file, we should have our
-# own parameter file
 def read_kappa_pdf(name, kappa_bins):
     """! Function that takes the values of \f$ k_{text{ext}} \f$ from file
 
@@ -156,9 +165,6 @@ for tdcosmo_lens in TDCOSMO_lenses:
     file.close()
     posterior['num_distribution_draws'] = num_distribution_draw
     posterior['error_cov_measurement'] = np.array(posterior['error_cov_measurement'], dtype='float')
-    ## properties is the function that simply assigns the Galaxy properties
-    ## from the file given; posterior['something'] loads the column 'something' from
-    ## the table posterior
     ######################### PUT M SOLITON ONCE YOU HAVE IT
     theta_E, r_eff, gamma_pl, z_lens, z_source, sigma_sis = properties(tdcosmo_lens, file_name_tdcosmo, partial_name=True)
     #########################
@@ -180,22 +186,19 @@ fmt = "{{0:{0}}}".format(".3f").format
 with_shear = False  # bool, if True, adds shear constraints in LOS estimate (only available for a subset of the sample, not recommended and not the choice of Birrer et al. 2020)
 kappa_choice_shear_ending = '_computed_1innermask_nobeta_zgap-1.0_-1.0_fiducial_120_gal_120_gamma_120_oneoverr_23.0_med_increments2_16_2_emptymsk_shearwithoutprior.cat'
 kappa_choice_no_shear_ending = '_computed_1innermask_nobeta_zgap-1.0_-1.0_fiducial_120_gal_120_oneoverr_23.0_med_increments2_2_emptymsk.cat'
-
 if with_shear is True:
     kappa_choice_ending = kappa_choice_shear_ending
 else:
     kappa_choice_ending = kappa_choice_no_shear_ending
-
 kwargs_ifu_all_list = []
 kwargs_ifu_quality_list = []
 
+# Slac lenses
 file = open(os.path.join(path2Analysis, path2slacs, ifu_sample_file_name) , 'rb')
 posterior_ifu_list = pickle.load(file)
 file.close()
 for kwargs_posterior in posterior_ifu_list:
     name = kwargs_posterior['name']
-    #if name == 'SDSSJ0216-0813 ':
-    #    name  = 'SDSSJ0216-0813'
     if name in ifu_names_all:
         kwargs_posterior_copy = copy.deepcopy(kwargs_posterior)
         if 'flag_ifu' in kwargs_posterior_copy:
@@ -213,7 +216,6 @@ for kwargs_posterior in posterior_ifu_list:
         kwargs_posterior_copy['lambda_scaling_property'] = r_eff/theta_E - 1
         if not ifu_mst_sampling_separate:  # if we sample the amplitude normalization of the IFU spectra separately, we do not need to include a systematic error on top
             kwargs_posterior_copy['sigma_sys_error_include'] = sigma_v_systematics
-
         if name in ifu_names_quality:
             kwargs_ifu_quality_list.append(kwargs_posterior_copy)
         if name in ifu_names_all:
@@ -227,8 +229,6 @@ posterior_sdss_list = pickle.load(file)
 file.close()
 for kwargs_posterior in posterior_sdss_list:
     name = kwargs_posterior['name']
-    #if name == 'SDSSJ0216-0813 ':
-    #    name  = 'SDSSJ0216-0813'
     if name in sdss_names_all:
         kwargs_posterior_copy = copy.deepcopy(kwargs_posterior)
         if 'flag_ifu' in kwargs_posterior_copy:
@@ -271,7 +271,7 @@ a_ani_min, a_ani_max, a_an_mean = 0.1, 5, 1
 # We don't use them all in our project
 kwargs_lower_cosmo = {'h0': 0, 'om': 0.05}
 kwargs_lower_lens = {'kappa_ext': -0.1, 'kappa_ext_sigma': 0.}
-############### Original (with also lambda MSD
+############### Original (with lambda MSD sampling)
 #  kwargs_lower_lens = {'lambda_mst': 0.5, 'lambda_mst_sigma': 0.001, 'kappa_ext': -0.1, 'kappa_ext_sigma': 0., 'lambda_ifu': 0.5, 'lambda_ifu_sigma': 0.01, 'alpha_lambda': -1}
 ################
 kwargs_lower_kin = {'a_ani': a_ani_min, 'a_ani_sigma': 0.01, 'beta_inf': beta_inf_min, 'beta_inf_sigma': 0.001, 'sigma_v_sys_error': 0.01}
@@ -288,9 +288,9 @@ kwargs_fixed_cosmo = {}
 ############ Originally there was nothing, I added fix MSD parameters
 kwargs_fixed_lens = {'lambda_mst' : 1, 'lambda_mst_sigma' : 0, 'lambda_ifu' : 1, 'lambda_ifu_sigma' : 0, 'alpha_lambda' : 0}
 ############
-# for the 'GOM' model is beta_inf should be free or fixed=1
+# for the 'GOM' model beta_inf should be free or fixed=1
 kwargs_fixed_kin = {}
-
+# I commented the MSD parameters
 kwargs_mean_start = {'kwargs_cosmo': {'h0': 70, 'om': 0.3},
                      #'kwargs_lens': {'lambda_mst': 1., 'lambda_mst_sigma': .05, 'lambda_ifu': 1, 'lambda_ifu_sigma': 0.05, 'alpha_lambda': 0},
                      'kwargs_kin': {'a_ani': 1, 'a_ani_sigma': 0.1, 'beta_inf': 0.8, 'beta_inf_sigma': 0.1, 'sigma_v_sys_error': 0.05}}
@@ -337,7 +337,6 @@ mcmc_sampler_tdcosmo = MCMCSampler(kwargs_likelihood_list=tdcosmo_posterior_list
 # Set up the backend
 # Don't forget to clear it in case the file already exists
 # Here is where the MCMC is performed, be careful!
-
 ########## Uncomment the following to make the TDCOSMO only analysis
 # Put the file in the current directory
 filename = "tdcosmo_chain"+lambda_prefix+".h5"
@@ -366,13 +365,9 @@ mcmc_sampler_slacs_ifu = MCMCSampler(kwargs_likelihood_list=lens_list,
                                    ######### Changed GAUSSIAN to None in lambda_ifu_distribution
                                      lambda_ifu_sampling=ifu_mst_sampling_separate, lambda_ifu_distribution='None',
                                      **kwargs_sampler)
-
-ndim = mcmc_sampler_slacs_ifu.param.num_param
 # Set up the backend
 # Don't forget to clear it in case the file already exists
-
-# Here you make the chain run for all lenses, uncomment
-
+# Here you make the chain run for all lenses, uncomment if commented
 filename = "tdcosmo_slacs_ifu_chain"+model_prefix+lambda_prefix+".h5"
 backend = emcee.backends.HDFBackend(filename)
 if run_chains is True:
