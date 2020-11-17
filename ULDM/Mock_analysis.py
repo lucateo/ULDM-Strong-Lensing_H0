@@ -21,23 +21,12 @@ from lenstronomy.Util import kernel_util
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
 
+## Trying to simulate RXJ1131
 # define lens configuration and cosmology (not for lens modelling)
-z_lens = 0.5
-z_source = 1.5
+z_lens = 0.295
+z_source = 0.658
 from astropy.cosmology import FlatLambdaCDM
-cosmo = FlatLambdaCDM(H0=67, Om0=0.3, Ob0=0.)
-
-
-# import PSF file
-#path = os.getcwd()
-#dirpath, _ = os.path.split(path)
-#module_path, _ = os.path.split(dirpath)
-#psf_filename = os.path.join(module_path, 'Data/PSF_TinyTim/psf_example.fits')
-#kernel = pyfits.getdata(psf_filename)
-
-#plt.matshow(np.log10(kernel))
-#plt.show()
-
+cosmo = FlatLambdaCDM(H0=77, Om0=0.3, Ob0=0.)
 
 # data specifics
 sigma_bkg = .05  #  background noise per pixel (Gaussian)
@@ -50,7 +39,6 @@ kernel_size = 91
 #kernel_cut = kernel_util.cut_psf(kernel, kernel_size)
 
 # initial input simulation
-
 # generate the coordinate grid and image properties
 kwargs_data = sim_util.data_configure_simple(numPix, deltaPix, exp_time, sigma_bkg)
 data_class = ImageData(**kwargs_data)
@@ -65,7 +53,7 @@ psf_class = PSF(**kwargs_psf)
 # lensing quantities
 gamma1, gamma2 = param_util.shear_polar2cartesian(phi=-0.5, gamma=0.06) # shear quantities
 kwargs_shear = {'gamma1': gamma1, 'gamma2': gamma2}  # shear values
-kwargs_spemd = {'theta_E': 1.66, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
+kwargs_spemd = {'theta_E': 1.57, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
 lens_model_list = ['SPEP', 'SHEAR']
@@ -121,13 +109,12 @@ image_sim = image_sim + bkg + poisson
 data_class.update_data(image_sim)
 kwargs_data['image_data'] = image_sim
 
-###################### This enters also in fitting function (to do the inference on the mock), try to use different models
+lens_model_list = ['SPEP', 'SHEAR']
 kwargs_model = {'lens_model_list': lens_model_list,
                  'lens_light_model_list': lens_light_model_list,
                  'source_light_model_list': source_model_list,
                 'point_source_model_list': point_source_list
                  }
-
 # display the initial simulated image
 cmap_string = 'gray'
 cmap = plt.get_cmap(cmap_string)
@@ -202,12 +189,14 @@ kwargs_lower_lens = []
 kwargs_upper_lens = []
 
 fixed_lens.append({})
+## SPEM model
 kwargs_lens_init.append({'theta_E': 1.6, 'gamma': 2, 'center_x': 0.0, 'center_y': 0, 'e1': 0, 'e2': 0.})
 #kwargs_lens_init.append(kwargs_spemd)
 kwargs_lens_sigma.append({'theta_E': .2, 'e1': 0.1, 'e2': 0.1, 'gamma': 0.1, 'center_x': 0.01, 'center_y': 0.01})
 kwargs_lower_lens.append({'theta_E': 0.01, 'e1': -0.5, 'e2': -0.5, 'gamma': 1.5, 'center_x': -10, 'center_y': -10})
 kwargs_upper_lens.append({'theta_E': 10, 'e1': 0.5, 'e2': 0.5, 'gamma': 2.5, 'center_x': 10, 'center_y': 10})
 
+## SHEAR model
 fixed_lens.append({'ra_0': 0, 'dec_0': 0})
 kwargs_lens_init.append({'gamma1': 0, 'gamma2': 0})
 #kwargs_lens_init.append(kwargs_shear)
@@ -215,6 +204,14 @@ kwargs_lens_sigma.append({'gamma1': 0.1, 'gamma2': 0.1})
 kwargs_lower_lens.append({'gamma1': -0.5, 'gamma2': -0.5})
 kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
 
+## ULDM model
+## You have to put this, this means that the fixed parameters in this case are zero
+fixed_lens.append({})
+kwargs_lens_init.append({'theta_c': 2.1, 'alpha_c': 0.11, 'center_x': 0.0, 'center_y': 0})
+#kwargs_lens_init.append(kwargs_shear)
+kwargs_lens_sigma.append({'theta_c': 0.1, 'alpha_c': 0.05, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'theta_c': 0.01, 'alpha_c': 0.01, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'theta_c': 10, 'alpha_c': 10, 'center_x': 10, 'center_y': 10})
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
 # lens light model choices
@@ -265,6 +262,13 @@ cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower
 
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
+lens_model_list_uldm = ['SPEP', 'SHEAR', 'ULDM']
+kwargs_model_uldm = {'lens_model_list': lens_model_list_uldm,
+                 'lens_light_model_list': lens_light_model_list,
+                 'source_light_model_list': source_model_list,
+                'point_source_model_list': point_source_list
+                 }
+
 kwargs_params = {'lens_model': lens_params,
                 'source_model': source_params,
                 'lens_light_model': lens_light_params,
@@ -298,29 +302,97 @@ from lenstronomy.Workflow.fitting_sequence import FittingSequence
 mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
-fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model, kwargs_constraints, kwargs_likelihood, kwargs_params)
 
-# Do before the PSO to reach a good starting value for MCMC
-fitting_kwargs_list = [['PSO', {'sigma_scale': .1, 'n_particles': 200, 'n_iterations': 200}],
-        ['MCMC', {'n_burn': 100, 'n_run': 100, 'walkerRatio': 10, 'sigma_scale': .1}]
-]
+run_sim = True
 
-start_time = time.time()
-chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
-kwargs_result = fitting_seq.best_fit()
+if run_sim == True:
+    fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
+    print('kwargs model ', kwargs_model_uldm)
+    # Do before the PSO to reach a good starting value for MCMC
+    fitting_kwargs_list = [['PSO', {'sigma_scale': .1, 'n_particles': 200, 'n_iterations': 200}],
+            ['MCMC', {'n_burn': 100, 'n_run': 200, 'walkerRatio': 10, 'sigma_scale': .1}]
+    ]
 
-file_name = 'mock_results.pkl'
-filedata = open(file_name, 'wb')
-pickle.dump(kwargs_result, filedata)
-filedata.close()
+    start_time = time.time()
+    chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
+    kwargs_result = fitting_seq.best_fit()
 
-end_time = time.time()
-print(end_time - start_time, 'total time needed for computation')
-print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
+    file_name = 'mock_results_uldm.pkl'
+    filedata = open(file_name, 'wb')
+    pickle.dump(kwargs_result, filedata)
+    filedata.close()
 
+    file_name = 'mock_results_uldm_chain.pkl'
+    filedata = open(file_name, 'wb')
+    pickle.dump(chain_list, filedata)
+    filedata.close()
+    end_time = time.time()
 
+    print(end_time - start_time, 'total time needed for computation')
+    print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
+else:
+    file_name = 'mock_results_uldm.pkl'
+    filedata = open(file_name, 'rb')
+    kwargs_result = pickle.load(filedata)
+    filedata.close()
 
+    file_name = 'mock_results_uldm_chain.pkl'
+    filedata = open(file_name, 'rb')
+    chain_list = pickle.load(filedata)
+    filedata.close()
 
+print('kwargs_result ', kwargs_result)
+
+from lenstronomy.Plots import chain_plot
+from lenstronomy.Plots.model_plot import ModelPlot
+
+modelPlot = ModelPlot(multi_band_list, kwargs_model, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
+
+f, axes = modelPlot.plot_main()
+f.show()
+f.savefig('Plot_main.png')
+f, axes = modelPlot.plot_separate()
+f.savefig('Plot_separate.png')
+f.show()
+f, axes = modelPlot.plot_subtract_from_data_all()
+f.savefig('Plot_subtract.png')
+f.show()
+
+# Plot the MonteCarlo
+for i in range(len(chain_list)):
+    chain_plot.plot_chain_list(chain_list, i)
+
+sampler_type, samples_mcmc, param_mcmc, dist_mcmc  = chain_list[1]
+
+print("number of non-linear parameters in the MCMC process: ", len(param_mcmc))
+print("parameters in order: ", param_mcmc)
+print("number of evaluations in the MCMC process: ", np.shape(samples_mcmc)[0])
+
+import corner
+# import the parameter handling class #
+from lenstronomy.Sampling.parameters import Param
+# make instance of parameter class with given model options, constraints and fixed parameters #
+
+param = Param(kwargs_model_uldm, fixed_lens, fixed_source, fixed_lens_light, fixed_ps, fixed_cosmo,
+              kwargs_lens_init=kwargs_result['kwargs_lens'], **kwargs_constraints)
+# the number of non-linear parameters and their names #
+num_param, param_list = param.num_param()
+
+mcmc_new_list = []
+labels_new = [r"$\phi_{Fermat}$", r"$\gamma$", r"$\gamma_1$", r"$\gamma_2$", r"$\theta_c$", r"$\alpha_c$",r"$D_{\Delta t}$"]
+for i in range(len(samples_mcmc)):
+    # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
+    kwargs_result = param.args2kwargs(samples_mcmc[i])
+    D_dt = kwargs_result['kwargs_special']['D_dt']
+    fermat_pot = td_cosmo.fermat_potential(kwargs_result['kwargs_lens'], kwargs_result['kwargs_ps'])
+    delta_fermat_12 = fermat_pot[0] - fermat_pot[2]
+    gamma = kwargs_result['kwargs_lens'][0]['gamma']
+    gamma1, gamma2 = kwargs_result['kwargs_lens'][1]['gamma1'], kwargs_result['kwargs_lens'][1]['gamma2']
+    theta_c, alpha_c = kwargs_result['kwargs_lens'][2]['theta_c'], kwargs_result['kwargs_lens'][2]['alpha_c']
+    mcmc_new_list.append([delta_fermat_12, gamma, gamma1, gamma2, theta_c, alpha_c, D_dt])
+
+plot = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
+plot.savefig('cornerPlot.png')
 
 
 

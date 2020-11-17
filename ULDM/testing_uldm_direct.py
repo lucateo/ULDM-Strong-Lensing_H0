@@ -13,15 +13,15 @@ lens_model_list = ['ULDM']
 
 cosmo = FlatLambdaCDM(H0 = 67, Om0=0.31, Ob0=0.05)
 
-z_lens = 0.5
+z_lens = 0.295
 # specify source redshift
-z_source = 1.5
+z_source = 0.658
 # setup lens model class with the list of lens models
 lensModel = LensModel(lens_model_list=lens_model_list, z_lens = z_lens, z_source=z_source, cosmo=cosmo)
 lens_cosmo = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo)
 
-thetac, alphac, rho_0 = lens_cosmo.uldm_phys2angles_rho0(-25,12)
-print(rho_0, alphac, thetac)
+thetac, alphac, rho_0 = lens_cosmo.uldm_phys2angles_rho0(-24,11.3)
+print('rho0 ', rho_0,  'alphac ', alphac, 'thetac ', thetac)
 
 # define parameter values of lens models
 kwargs_uldm = {'theta_c': 1.1, 'alpha_c' : 0.5, 'center_x': 0.1, 'center_y': 0}
@@ -57,9 +57,28 @@ mass = (const.arcsec * lens_cosmo.dd * 10**6)**3 * mass
 mass = np.log10(mass)
 print('mass = ', mass)
 
+
+
+D_Lens = lens_cosmo.dd * 10**6
+Sigma_c = lens_cosmo.sigma_crit * 10**(-12)
+
+thetac_prova = 1.8
+alphac_prova = 0.01
+m_prova = 10**(-2)
+M_prova = 10**(2)
+
+m22 = 1.59 * 1.9 * 10**(10) / (Sigma_c * D_Lens**3 * alphac_prova * thetac_prova**2 * const.arcsec**3)
+M9 = 228 / (D_Lens * thetac_prova * const.arcsec) * m22**(-2)
+m22_2 = np.sqrt(228 / (D_Lens * thetac_prova * const.arcsec)* M_prova**(-1))
+
+print('m ',m22, 'M ', M9, 'm2 ', m22_2)
+
 ####### Plotting stuff
-radius = np.arange(0.1, 100, 5.)
+radius = np.arange(0.01, 10, 0.1)
 D_Lens = lens_cosmo.dd * 1000 # in kpc
+plt.xscale('log')
+plt.yscale('log')
+# rho is in M_sun/parsec^3
 plt.plot(radius, uldm_lens.density(radius/D_Lens /const.arcsec, rho_0, thetac))
 plt.show()
 
