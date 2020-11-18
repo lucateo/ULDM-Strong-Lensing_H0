@@ -51,7 +51,7 @@ psf_class = PSF(**kwargs_psf)
 
 ########################### CHOOSING THE LENS MODELLING STUFF FOR THE MOCK IMAGE #################
 # lensing quantities
-gamma1, gamma2 = param_util.shear_polar2cartesian(phi=-0.5, gamma=0.06) # shear quantities
+gamma1, gamma2 = param_util.shear_polar2cartesian(phi=-0.5, gamma=0.09) # shear quantities
 kwargs_shear = {'gamma1': gamma1, 'gamma2': gamma2}  # shear values
 kwargs_spemd = {'theta_E': 1.57, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
 
@@ -303,7 +303,7 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = True
+run_sim =False
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
@@ -349,14 +349,11 @@ from lenstronomy.Plots.model_plot import ModelPlot
 modelPlot = ModelPlot(multi_band_list, kwargs_model, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
 
 f, axes = modelPlot.plot_main()
-f.show()
 f.savefig('Plot_main.png')
 f, axes = modelPlot.plot_separate()
 f.savefig('Plot_separate.png')
-f.show()
 f, axes = modelPlot.plot_subtract_from_data_all()
 f.savefig('Plot_subtract.png')
-f.show()
 
 # Plot the MonteCarlo
 for i in range(len(chain_list)):
