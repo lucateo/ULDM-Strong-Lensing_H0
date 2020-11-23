@@ -331,7 +331,7 @@ kwargs_sampler_tdcosmo['sigma_v_systematics'] = False  # we do not add a systema
 
 ## With the tight prior on H0
 # cosmology is just FLCDM, kwargs are just dictionaries with instructions for sampling (CustomPrior is on kwargs_sampler_tdcosmo)
-# the posterior list is just the data for every galaxy, with also the Ddt single lens posterior histogram
+# the posterior list is just the data for every galaxy, with also the Ddt single lens posterior histogram (computed with (time delays)/ (fermat potential))
 mcmc_sampler_tdcosmo = MCMCSampler(kwargs_likelihood_list=tdcosmo_posterior_list,
                                    cosmology=cosmology, kwargs_bounds=kwargs_bounds, **kwargs_sampler_tdcosmo)
 # Set up the backend

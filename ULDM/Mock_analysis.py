@@ -2,6 +2,7 @@
 import numpy as np
 import os
 import time
+import copy
 import corner
 import astropy.io.fits as pyfits
 import pickle
@@ -62,10 +63,8 @@ lens_model_class = LensModel(lens_model_list=lens_model_list, z_lens=z_lens, z_s
 
 # choice of source type
 source_type = 'SERSIC'  # 'SERSIC' or 'SHAPELETS'
-
 source_x = 0.
 source_y = 0.1
-
 # Sersic parameters in the initial simulation for the source
 phi_G, q = 0.5, 0.8
 e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
@@ -117,7 +116,8 @@ kwargs_model = {'lens_model_list': lens_model_list,
                  }
 # display the initial simulated image
 cmap_string = 'gray'
-cmap = plt.get_cmap(cmap_string)
+#  cmap = plt.get_cmap(cmap_string)
+cmap = copy.copy(plt.get_cmap(cmap_string))
 cmap.set_bad(color='k', alpha=1.)
 cmap.set_under('k')
 
@@ -206,12 +206,13 @@ kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
 
 ## ULDM model
 ## You have to put this, this means that the fixed parameters in this case are zero
+## Insert manually the sigma values for likelihood computation
 fixed_lens.append({})
-kwargs_lens_init.append({'theta_c': 2.1, 'alpha_c': 0.11, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_init.append({'m_noCosmo_log10': -8.1, 'M_noCosmo_log10': -9.1, 'center_x': 0.0, 'center_y': 0})
 #kwargs_lens_init.append(kwargs_shear)
-kwargs_lens_sigma.append({'theta_c': 0.1, 'alpha_c': 0.05, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'theta_c': 0.01, 'alpha_c': 0.01, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'theta_c': 10, 'alpha_c': 10, 'center_x': 10, 'center_y': 10})
+kwargs_lens_sigma.append({'m_noCosmo_log10': 1.5, 'M_noCosmo_log10': 2.5, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'m_noCosmo_log10': -12, 'M_noCosmo_log10': -13, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'m_noCosmo_log10': -5, 'M_noCosmo_log10': -5, 'center_x': 10, 'center_y': 10})
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
 # lens light model choices
@@ -263,12 +264,13 @@ cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
 lens_model_list_uldm = ['SPEP', 'SHEAR', 'ULDM']
+# Just names of the various models used, like ULDM, SERSIC etc.
 kwargs_model_uldm = {'lens_model_list': lens_model_list_uldm,
                  'lens_light_model_list': lens_light_model_list,
                  'source_light_model_list': source_model_list,
                 'point_source_model_list': point_source_list
                  }
-
+# Init, upper and lower bound values for all parameters of the model
 kwargs_params = {'lens_model': lens_params,
                 'source_model': source_params,
                 'lens_light_model': lens_light_params,
@@ -303,7 +305,7 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim =False
+run_sim = False
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
@@ -376,7 +378,7 @@ param = Param(kwargs_model_uldm, fixed_lens, fixed_source, fixed_lens_light, fix
 num_param, param_list = param.num_param()
 
 mcmc_new_list = []
-labels_new = [r"$\phi_{Fermat}$", r"$\gamma$", r"$\gamma_1$", r"$\gamma_2$", r"$\theta_c$", r"$\alpha_c$",r"$D_{\Delta t}$"]
+labels_new = [r"$\phi_{Fermat}$", r"$\gamma$", r"$ \theta_E $", r"$ m $", r"$ M_{sol} $",r"$D_{\Delta t}$"]
 for i in range(len(samples_mcmc)):
     # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
     kwargs_result = param.args2kwargs(samples_mcmc[i])
@@ -384,12 +386,13 @@ for i in range(len(samples_mcmc)):
     fermat_pot = td_cosmo.fermat_potential(kwargs_result['kwargs_lens'], kwargs_result['kwargs_ps'])
     delta_fermat_12 = fermat_pot[0] - fermat_pot[2]
     gamma = kwargs_result['kwargs_lens'][0]['gamma']
-    gamma1, gamma2 = kwargs_result['kwargs_lens'][1]['gamma1'], kwargs_result['kwargs_lens'][1]['gamma2']
-    theta_c, alpha_c = kwargs_result['kwargs_lens'][2]['theta_c'], kwargs_result['kwargs_lens'][2]['alpha_c']
-    mcmc_new_list.append([delta_fermat_12, gamma, gamma1, gamma2, theta_c, alpha_c, D_dt])
+    theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
+    #  gamma1, gamma2 = kwargs_result['kwargs_lens'][1]['gamma1'], kwargs_result['kwargs_lens'][1]['gamma2']
+    m_noCosmo_log10, M_noCosmo_log10 = kwargs_result['kwargs_lens'][2]['m_noCosmo_log10'], kwargs_result['kwargs_lens'][2]['M_noCosmo_log10']
+    mcmc_new_list.append([delta_fermat_12, gamma, theta_E, m_noCosmo_log10, M_noCosmo_log10, D_dt])
 
 plot = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
-plot.savefig('cornerPlot.png')
+plot.savefig('cornerPlot2.png')
 
 
 
