@@ -208,9 +208,9 @@ kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
 ## You have to put this, this means that the fixed parameters in this case are zero
 ## Insert manually the sigma values for likelihood computation
 fixed_lens.append({})
-kwargs_lens_init.append({'m_noCosmo_log10': -8.1, 'M_noCosmo_log10': -9.1, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_init.append({'m_noCosmo_log10': -8.1, 'M_noCosmo_log10': -10.1, 'center_x': 0.0, 'center_y': 0})
 #kwargs_lens_init.append(kwargs_shear)
-kwargs_lens_sigma.append({'m_noCosmo_log10': 1.5, 'M_noCosmo_log10': 2.5, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lens_sigma.append({'m_noCosmo_log10': 2.5, 'M_noCosmo_log10': 2.5, 'center_x': 0.01, 'center_y': 0.01})
 kwargs_lower_lens.append({'m_noCosmo_log10': -12, 'M_noCosmo_log10': -13, 'center_x': -10, 'center_y': -10})
 kwargs_upper_lens.append({'m_noCosmo_log10': -5, 'M_noCosmo_log10': -5, 'center_x': 10, 'center_y': 10})
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
@@ -305,14 +305,14 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = False
+run_sim = True
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     print('kwargs model ', kwargs_model_uldm)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': .1, 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 100, 'n_run': 200, 'walkerRatio': 10, 'sigma_scale': .1}]
+            ['MCMC', {'n_burn': 200, 'n_run': 500, 'walkerRatio': 10, 'sigma_scale': .1}]
     ]
 
     start_time = time.time()
@@ -342,8 +342,6 @@ else:
     filedata = open(file_name, 'rb')
     chain_list = pickle.load(filedata)
     filedata.close()
-
-print('kwargs_result ', kwargs_result)
 
 from lenstronomy.Plots import chain_plot
 from lenstronomy.Plots.model_plot import ModelPlot
