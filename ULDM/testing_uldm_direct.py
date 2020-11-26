@@ -11,7 +11,12 @@ from lenstronomy.LensModel.Profiles.uldm import Uldm
 # specify the choice of lens models #
 lens_model_list = ['ULDM']
 
+prior_special_lognormal = ['h0', 67.4, 0.5]
+param_name, value, sigma = prior_special_lognormal
+print(param_name)
+
 cosmo = FlatLambdaCDM(H0 = 67, Om0=0.31, Ob0=0.05)
+cosmo2 = FlatLambdaCDM(H0 = 77, Om0=0.31, Ob0=0.05)
 
 z_lens = 0.295
 # specify source redshift
@@ -19,9 +24,11 @@ z_source = 0.658
 # setup lens model class with the list of lens models
 lensModel = LensModel(lens_model_list=lens_model_list, z_lens = z_lens, z_source=z_source, cosmo=cosmo)
 lens_cosmo = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo)
+lens_cosmo2 = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo2)
 
 Ddt = lens_cosmo.ddt
-print(Ddt, " time delay surface")
+Ddt2 = lens_cosmo2.ddt
+print(Ddt/Ddt2, " time delay surface, ratio Hubble:  ", 77/67)
 
 # define parameter values of lens models
 kwargs_uldm = {'m_noCosmo_log10': -8, 'M_noCosmo_log10' : -9, 'center_x': 0.1, 'center_y': 0}

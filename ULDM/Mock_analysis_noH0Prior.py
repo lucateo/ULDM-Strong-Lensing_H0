@@ -182,7 +182,7 @@ print(vel_disp, 'velocity dispersion in km/s')
 
 ############################# NOW THAT WE HAVE THE IMAGE AND THE TIME DELAYS + VELOCITY DISPERSION,
 ############################# TIME TO DO THE PARAMETER INFERENCE
-# lens model choicers: initial guess and upper-lower bounds, I think that the sigma is for Particle Swarm Optimization
+# lens model choicers: initial guess and upper-lower bounds
 fixed_lens = []
 kwargs_lens_init = []
 kwargs_lens_sigma = []
@@ -200,7 +200,6 @@ kwargs_upper_lens.append({'theta_E': 10, 'e1': 0.5, 'e2': 0.5, 'gamma': 2.5, 'ce
 ## SHEAR model
 fixed_lens.append({'ra_0': 0, 'dec_0': 0})
 kwargs_lens_init.append({'gamma1': 0, 'gamma2': 0})
-#kwargs_lens_init.append(kwargs_shear)
 kwargs_lens_sigma.append({'gamma1': 0.1, 'gamma2': 0.1})
 kwargs_lower_lens.append({'gamma1': -0.5, 'gamma2': -0.5})
 kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
@@ -208,16 +207,11 @@ kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
 ## ULDM model
 ## You have to put this, this means that the fixed parameters in this case are zero
 ## Insert manually the sigma values for likelihood computation
-m_noCosmo_log10_fixed = -9
-fixed_lens.append({'m_noCosmo_log10' : m_noCosmo_log10_fixed})
-#  kwargs_lens_init.append({'m_noCosmo_log10': -8.1, 'M_noCosmo_log10': -10.1, 'center_x': 0.0, 'center_y': 0})
-#  kwargs_lens_sigma.append({'m_noCosmo_log10': 2.5, 'M_noCosmo_log10': 2.5, 'center_x': 0.01, 'center_y': 0.01})
-#  kwargs_lower_lens.append({'m_noCosmo_log10': -12, 'M_noCosmo_log10': -13, 'center_x': -10, 'center_y': -10})
-#  kwargs_upper_lens.append({'m_noCosmo_log10': -5, 'M_noCosmo_log10': -5, 'center_x': 10, 'center_y': 10})
-kwargs_lens_init.append({'M_noCosmo_log10': -10.1, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'M_noCosmo_log10': 2.5, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'M_noCosmo_log10': -13, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'M_noCosmo_log10': -5, 'center_x': 10, 'center_y': 10})
+fixed_lens.append({})
+kwargs_lens_init.append({'m_noCosmo_log10': -8.1, 'M_noCosmo_log10': -10.1, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_sigma.append({'m_noCosmo_log10': 2.5, 'M_noCosmo_log10': 2.5, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'m_noCosmo_log10': -12, 'M_noCosmo_log10': -13, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'m_noCosmo_log10': -5, 'M_noCosmo_log10': -5, 'center_x': 10, 'center_y': 10})
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
 # lens light model choices
@@ -260,11 +254,11 @@ kwargs_lower_ps = [{'ra_image': -10 * np.ones(len(x_image)), 'dec_image': -10 * 
 kwargs_upper_ps = [{'ra_image': 10* np.ones(len(x_image)), 'dec_image': 10 * np.ones(len(y_image))}]
 
 fixed_cosmo = {'z_lens' : z_lens, 'z_source' : z_source, 'Om' : 0.3}
-kwargs_cosmo_init = {'h0': 67.4}
+kwargs_cosmo_init = {'h0': 70.0}
 # Find out its interpretation
-kwargs_cosmo_sigma = {'h0': 10}
-kwargs_lower_cosmo = {'h0': 65}
-kwargs_upper_cosmo = {'h0': 80}
+kwargs_cosmo_sigma = {'h0': 40}
+kwargs_lower_cosmo = {'h0': 10}
+kwargs_upper_cosmo = {'h0': 100}
 cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower_cosmo, kwargs_upper_cosmo]
 
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
@@ -288,12 +282,9 @@ num_source_model = len(source_model_list)
 kwargs_constraints = {'joint_source_with_point_source': [[0, 0]],
                       'num_point_source_list': [4],
                       'solver_type': 'PROFILE_SHEAR',  # 'PROFILE', 'PROFILE_SHEAR', 'ELLIPSE', 'CENTER'
-                      #  'Ddt_sampling': True,
                       'h0_sampling' : True,
                               }
 
-# Defining parameters for H0 prior, IMPORTANT the double brackets!
-prior_special = [['h0', 67.4, 0.5]]
 kwargs_likelihood = {'check_bounds': True,
                      'force_no_add_image': False,
                      'source_marg': False,
@@ -301,7 +292,6 @@ kwargs_likelihood = {'check_bounds': True,
                      'check_matched_source_position': True,
                      'source_position_tolerance': 0.001,
                      'h0_likelihood': True,
-                     'prior_special' : prior_special,
                              }
 # kwargs_data contains the image arraay
 image_band = [kwargs_data, kwargs_psf, kwargs_numerics]
@@ -322,19 +312,19 @@ if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': .1, 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 100, 'n_run': 200, 'walkerRatio': 10, 'sigma_scale': .1}]
+            ['MCMC', {'n_burn': 200, 'n_run': 500, 'walkerRatio': 10, 'sigma_scale': .1}]
     ]
 
     start_time = time.time()
     chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
     kwargs_result = fitting_seq.best_fit()
 
-    file_name = 'mock_results_uldm_prova.pkl'
+    file_name = 'mock_results_uldm_noH0Prior.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(kwargs_result, filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_prova.pkl'
+    file_name = 'mock_results_uldm_chain_noH0Prior.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(chain_list, filedata)
     filedata.close()
@@ -343,12 +333,12 @@ if run_sim == True:
     print(end_time - start_time, 'total time needed for computation')
     print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
 else:
-    file_name = 'mock_results_uldm_prova.pkl'
+    file_name = 'mock_results_uldm_noH0Prior.pkl'
     filedata = open(file_name, 'rb')
     kwargs_result = pickle.load(filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_prova.pkl'
+    file_name = 'mock_results_uldm_chain_noH0Prior.pkl'
     filedata = open(file_name, 'rb')
     chain_list = pickle.load(filedata)
     filedata.close()
@@ -360,14 +350,13 @@ make_figures = True
 if make_figures == True:
     modelPlot = ModelPlot(multi_band_list, kwargs_model, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
-    f.savefig('Plot_main_prova.png')
+    f.savefig('Plot_main_H0NoPrior.png')
     f, axes = modelPlot.plot_separate()
-    f.savefig('Plot_separate_prova.png')
+    f.savefig('Plot_separate_H0NoPrior.png')
     f, axes = modelPlot.plot_subtract_from_data_all()
-    f.savefig('Plot_subtract_prova.png')
+    f.savefig('Plot_subtract_H0NoPrior.png')
 
 make_cornerPlot = True
-make_prova = True
 if make_cornerPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
@@ -391,47 +380,21 @@ if make_cornerPlot == True:
 
     mcmc_new_list = []
 
-    if make_prova == True:
-        labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ q $", r"$ m $", r"$ M_{sol} $",r"$ h0 $"]
-        for i in range(len(samples_mcmc)):
-            # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
-            kwargs_result = param.args2kwargs(samples_mcmc[i])
-            h0 = kwargs_result['kwargs_special']['h0']
-            cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
-            lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
-            gamma = kwargs_result['kwargs_lens'][0]['gamma']
-            theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
-            e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
-            phi_G, q = param_util.ellipticity2phi_q(e1, e2)
-            M_noCosmo_log10 = kwargs_result['kwargs_lens'][2]['M_noCosmo_log10']
-            m_log10, M_log10 = lens_cosmo_current.m_noCosmo2m_phys(m_noCosmo_log10_fixed, M_noCosmo_log10)
-            mcmc_new_list.append([gamma, theta_E, q, m_log10, M_log10, h0])
-        plot = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
-        plot.savefig('cornerPlot_h0_prova.png')
-    else:
-        # Use the following to extract h0 from generic Ddt with ratio
-        fiducial_cosmo = FlatLambdaCDM(H0 = 67, Om0=0.31, Ob0=0.05)
-        fiducial_lens_cosmo = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = fiducial_cosmo)
-        fiducial_Ddt = fiducial_lens_cosmo.ddt
-
-        labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ q $", r"$ m $", r"$ M_{sol} $",r"$ h0 $"]
-        for i in range(len(samples_mcmc)):
-            # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
-            kwargs_result = param.args2kwargs(samples_mcmc[i])
-            D_dt = kwargs_result['kwargs_special']['D_dt']
-            h0 = fiducial_Ddt / D_dt * 0.67
-            cosmo_current = FlatLambdaCDM(H0 = 100*h0, Om0=0.31, Ob0=0.05)
-            lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
-            gamma = kwargs_result['kwargs_lens'][0]['gamma']
-            theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
-            e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
-            phi_G, q = param_util.ellipticity2phi_q(e1, e2)
-            m_noCosmo_log10, M_noCosmo_log10 = kwargs_result['kwargs_lens'][2]['m_noCosmo_log10'], kwargs_result['kwargs_lens'][2]['M_noCosmo_log10']
-            m_log10, M_log10 = lens_cosmo_current.m_noCosmo2m_phys(m_noCosmo_log10, M_noCosmo_log10)
-            mcmc_new_list.append([gamma, theta_E, q, m_log10, M_log10, h0])
-
-        plot = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
-        plot.savefig('cornerPlot_h0.png')
-
+    labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ q $", r"$ m $", r"$ M_{sol} $",r"$ h0 $"]
+    for i in range(len(samples_mcmc)):
+        # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
+        kwargs_result = param.args2kwargs(samples_mcmc[i])
+        h0 = kwargs_result['kwargs_special']['h0']
+        cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
+        lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
+        gamma = kwargs_result['kwargs_lens'][0]['gamma']
+        theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
+        e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
+        phi_G, q = param_util.ellipticity2phi_q(e1, e2)
+        M_noCosmo_log10 = kwargs_result['kwargs_lens'][2]['M_noCosmo_log10']
+        m_log10, M_log10 = lens_cosmo_current.m_noCosmo2m_phys(m_noCosmo_log10_fixed, M_noCosmo_log10)
+        mcmc_new_list.append([gamma, theta_E, q, m_log10, M_log10, h0])
+    plot = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
+    plot.savefig('cornerPlot_h0NoPrior.png')
 
 
