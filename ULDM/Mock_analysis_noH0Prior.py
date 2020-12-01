@@ -20,9 +20,10 @@ import lenstronomy.Util.param_util as param_util
 import lenstronomy.Util.simulation_util as sim_util
 import lenstronomy.Util.image_util as image_util
 from lenstronomy.Util import kernel_util
+import lenstronomy.Util.constants as const
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
-
+from lenstronomy.LensModel.Profiles.uldm import Uldm
 ## Trying to simulate RXJ1131
 # define lens configuration and cosmology (not for lens modelling)
 z_lens = 0.5
@@ -115,24 +116,6 @@ kwargs_model = {'lens_model_list': lens_model_list,
                  'source_light_model_list': source_model_list,
                 'point_source_model_list': point_source_list
                  }
-# display the initial simulated image
-cmap_string = 'gray'
-#  cmap = plt.get_cmap(cmap_string)
-cmap = copy.copy(plt.get_cmap(cmap_string))
-cmap.set_bad(color='k', alpha=1.)
-cmap.set_under('k')
-
-v_min = -4
-v_max = 2
-
-f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
-ax = axes
-im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)
-ax.autoscale(False)
-plt.show()
-
 ########################## EXTRACT VALUES LIKE TIME DELAYS, VELOCITY DISPERSIONS; THESE ARE THE DATA OF A REAL OBSERVATION
 from lenstronomy.Analysis.td_cosmography import TDCosmography
 td_cosmo = TDCosmography(z_lens, z_source, kwargs_model, cosmo_fiducial=cosmo)
@@ -306,13 +289,13 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = True
+run_sim = False
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': .1, 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 200, 'n_run': 500, 'walkerRatio': 10, 'sigma_scale': .1}]
+            ['MCMC', {'n_burn': 300, 'n_run': 1000, 'walkerRatio': 10, 'sigma_scale': .1}]
     ]
 
     start_time = time.time()
@@ -345,10 +328,10 @@ else:
 
 from lenstronomy.Plots import chain_plot
 from lenstronomy.Plots.model_plot import ModelPlot
-
-make_figures = True
+print(kwargs_result)
+make_figures = False
 if make_figures == True:
-    modelPlot = ModelPlot(multi_band_list, kwargs_model, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
+    modelPlot = ModelPlot(multi_band_list, kwargs_model_uldm, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
     f.savefig('Plot_main_H0NoPrior.png')
     f, axes = modelPlot.plot_separate()
@@ -379,8 +362,9 @@ if make_cornerPlot == True:
     num_param, param_list = param.num_param()
 
     mcmc_new_list = []
+    uldm_lens = Uldm()
 
-    labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ q $", r"$ m $", r"$ M_{sol} $",r"$ h0 $"]
+    labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ q $", r"$ \theta_c $", r"$ \kappa_c $", r"$ M_{sol} $",r"$ h0 $"]
     for i in range(len(samples_mcmc)):
         # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
         kwargs_result = param.args2kwargs(samples_mcmc[i])
@@ -391,10 +375,13 @@ if make_cornerPlot == True:
         theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
         e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
         phi_G, q = param_util.ellipticity2phi_q(e1, e2)
-        M_noCosmo_log10 = kwargs_result['kwargs_lens'][2]['M_noCosmo_log10']
-        m_log10, M_log10 = lens_cosmo_current.m_noCosmo2m_phys(m_noCosmo_log10_fixed, M_noCosmo_log10)
-        mcmc_new_list.append([gamma, theta_E, q, m_log10, M_log10, h0])
+        m_noCosmo_log10, M_noCosmo_log10 = kwargs_result['kwargs_lens'][2]['m_noCosmo_log10'], kwargs_result['kwargs_lens'][2]['M_noCosmo_log10']
+        theta_c = uldm_lens.theta_cRad(m_noCosmo_log10, M_noCosmo_log10) / const.arcsec
+        kappa_central = uldm_lens.density_2d(0.01,0.01, m_noCosmo_log10, M_noCosmo_log10)
+        m_log10, M_log10 = lens_cosmo_current.m_noCosmo2m_phys(m_noCosmo_log10, M_noCosmo_log10)
+        if -24.1 < m_log10 < -24.0:
+            mcmc_new_list.append([gamma, theta_E, q, theta_c, kappa_central, M_log10, h0])
     plot = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
-    plot.savefig('cornerPlot_h0NoPrior.png')
+    plot.savefig('cornerPlot_h0NoPrior_prova.png')
 
 

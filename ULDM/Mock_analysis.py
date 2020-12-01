@@ -358,7 +358,7 @@ from lenstronomy.Plots.model_plot import ModelPlot
 
 make_figures = True
 if make_figures == True:
-    modelPlot = ModelPlot(multi_band_list, kwargs_model, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
+    modelPlot = ModelPlot(multi_band_list, kwargs_model_uldm, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
     f.savefig('Plot_main_prova.png')
     f, axes = modelPlot.plot_separate()
