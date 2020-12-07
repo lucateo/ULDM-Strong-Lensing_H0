@@ -194,10 +194,10 @@ kwargs_upper_lens = []
 ## ULDM model
 ## You have to put this, this means that the fixed parameters in this case are zero
 fixed_lens.append({})
-kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 10, 'theta_E': 1.6, 'gamma': 2, 'e1': 0, 'e2': 0., 'center_xULDM': 0.0, 'center_yULDM': 0.0, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'kappa_0': 0.01, 'theta_c': 10, 'theta_E': 0.2, 'gamma': 0.1, 'e1': 0.1, 'e2': 0.1, 'center_xULDM': 0.01, 'center_yULDM': 0.01, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'kappa_0': 0.001, 'theta_c': 0, 'theta_E': 0.01, 'gamma': 1.8, 'e1': -0.5, 'e2': -0.5, 'center_xULDM': -10, 'center_yULDM': -10, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 30, 'theta_E': 10, 'gamma': 2.2, 'e1': 0.5, 'e2': 0.5, 'center_xULDM': 10.0, 'center_yULDM': 10.0, 'center_x': 10.0, 'center_y': 10.0})
+kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 10, 'theta_E': 1.6, 'gamma': 2, 'e1': 0, 'e2': 0., 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_sigma.append({'kappa_0': 0.01, 'theta_c': 5, 'theta_E': 0.2, 'gamma': 0.1, 'e1': 0.1, 'e2': 0.1, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'kappa_0': 0.001, 'theta_c': 0, 'theta_E': 0.01, 'gamma': 1.8, 'e1': -0.5, 'e2': -0.5, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 20, 'theta_E': 10, 'gamma': 2.2, 'e1': 0.5, 'e2': 0.5, 'center_x': 10.0, 'center_y': 10.0})
 
 ## SHEAR model
 fixed_lens.append({'ra_0': 0, 'dec_0': 0})
