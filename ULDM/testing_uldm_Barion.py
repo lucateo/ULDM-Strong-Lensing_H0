@@ -14,19 +14,19 @@ lens_model_list = ['ULDM-BAR']
 cosmo = FlatLambdaCDM(H0 = 67, Om0=0.31, Ob0=0.05)
 cosmo2 = FlatLambdaCDM(H0 = 77, Om0=0.31, Ob0=0.05)
 
-z_lens = 0.295
+z_lens = 0.5
 # specify source redshift
-z_source = 0.658
+z_source = 1.5
 # setup lens model class with the list of lens models
 lensModel = LensModel(lens_model_list=lens_model_list, z_lens = z_lens, z_source=z_source, cosmo=cosmo)
 lens_cosmo = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo)
 lens_cosmo2 = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo2)
 
 # define parameter values of lens models
-kappa_0 = 0.1
-theta_c = 2
-theta_E = 1.6
-gamma = 2
+kappa_0 = 0.09
+theta_c = 3.10
+theta_E = 1.423
+gamma = 1.96
 e1 = 0.1
 e2 = 0.1
 center_xULDM = 0.1
@@ -47,8 +47,15 @@ uldm_lens = Uldm_Bar()
 potential = uldm_lens.function(1.1, 1.1, kappa_0, theta_c, theta_E, gamma, e1, e2)
 print('try potential ', potential)
 
+MSD_potential = uldm_lens.function(0.4, 0, kappa_0, 5, 0.00001, gamma, e1, e2)
+MSD_potential2 = uldm_lens.function(0.5, 0, kappa_0, 5, 0.00001, gamma, e1, e2)
+print('Try MSD, uldm for large theta_c, potential ', MSD_potential - MSD_potential2, ' Pure MSD expected result ', kappa_0* 0.4**2 /2 - kappa_0* 0.5**2 /2)
+
 abba = uldm_lens.derivatives(0.4, 0.7, kappa_0, theta_c, theta_E, gamma, e1, e2)
 print('Try direct derivatives ', abba)
+
+MSD_trial = uldm_lens.derivatives(0.4, 0.0, kappa_0, 5, 0.00001, gamma, e1, e2)
+print('Try MSD, uldm for large theta_c ', MSD_trial, ' Pure MSD expected result ', kappa_0*0.4)
 
 fermat_lens = lensModel.fermat_potential(1,2,kwargs_lens)
 print('fermat potential: ',fermat_lens)
@@ -61,8 +68,11 @@ Sigma_c = lens_cosmo.sigma_crit * 10**(-12)
 
 print('D_lens ' , D_Lens, ' Sigma_crit ', Sigma_c)
 
-mass3d = uldm_lens.mass_3d(10, kappa_0, theta_c) * const.arcsec**2 * Sigma_c * D_Lens**2
+mass3d = uldm_lens.mass_3d(10000, kappa_0, theta_c) * const.arcsec**2 * Sigma_c * D_Lens**2
 print('Mass lens: ', np.log10(mass3d))
+
+mass3dLens = uldm_lens.mass_3d_lens(20, kappa_0, theta_c, theta_E, gamma) * const.arcsec**2 * Sigma_c * D_Lens**2
+print('Mass lens PL + ULDM: ', np.log10(mass3dLens))
 
 m, M, rho0, lambda_sol = lens_cosmo.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
 print('mass ', m, 'Mass Soliton ', M, 'rho0 phys ', rho0, 'lambda ', lambda_sol)

@@ -23,6 +23,8 @@ from lenstronomy.Util import kernel_util
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
 
+np.random.seed(42)
+
 ## Trying to simulate RXJ1131
 # define lens configuration and cosmology (not for lens modelling)
 z_lens = 0.5
@@ -192,10 +194,10 @@ kwargs_upper_lens = []
 ## ULDM model
 ## You have to put this, this means that the fixed parameters in this case are zero
 fixed_lens.append({})
-kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 2., 'theta_E': 1.6, 'gamma': 2, 'e1': 0, 'e2': 0., 'center_xULDM': 0.0, 'center_yULDM': 0.0, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'kappa_0': 0.5, 'theta_c': 1.0, 'theta_E': 0.2, 'gamma': 0.1, 'e1': 0.1, 'e2': 0.1, 'center_xULDM': 0.01, 'center_yULDM': 0.01, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'kappa_0': 0.0, 'theta_c': 0.01, 'theta_E': 0.01, 'gamma': 1.5, 'e1': -0.5, 'e2': -0.5, 'center_xULDM': -10, 'center_yULDM': -10, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 20, 'theta_E': 10, 'gamma': 2.5, 'e1': 0.5, 'e2': 0.5, 'center_xULDM': 10.0, 'center_yULDM': 10.0, 'center_x': 10.0, 'center_y': 10.0})
+kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 10, 'theta_E': 1.6, 'gamma': 2, 'e1': 0, 'e2': 0., 'center_xULDM': 0.0, 'center_yULDM': 0.0, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_sigma.append({'kappa_0': 0.01, 'theta_c': 10, 'theta_E': 0.2, 'gamma': 0.1, 'e1': 0.1, 'e2': 0.1, 'center_xULDM': 0.01, 'center_yULDM': 0.01, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'kappa_0': 0.001, 'theta_c': 0, 'theta_E': 0.01, 'gamma': 1.8, 'e1': -0.5, 'e2': -0.5, 'center_xULDM': -10, 'center_yULDM': -10, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 30, 'theta_E': 10, 'gamma': 2.2, 'e1': 0.5, 'e2': 0.5, 'center_xULDM': 10.0, 'center_yULDM': 10.0, 'center_x': 10.0, 'center_y': 10.0})
 
 ## SHEAR model
 fixed_lens.append({'ra_0': 0, 'dec_0': 0})
@@ -250,8 +252,8 @@ kwargs_upper_ps = [{'ra_image': 10* np.ones(len(x_image)), 'dec_image': 10 * np.
 fixed_cosmo = {'z_lens' : z_lens, 'z_source' : z_source, 'Om' : 0.3}
 kwargs_cosmo_init = {'h0': 67.4}
 # Find out its interpretation
-kwargs_cosmo_sigma = {'h0': 10}
-kwargs_lower_cosmo = {'h0': 65}
+kwargs_cosmo_sigma = {'h0': 1.}
+kwargs_lower_cosmo = {'h0': 60}
 kwargs_upper_cosmo = {'h0': 80}
 cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower_cosmo, kwargs_upper_cosmo]
 
@@ -287,6 +289,7 @@ kwargs_likelihood = {'check_bounds': True,
                      'image_position_uncertainty': 0.004,
                      'check_matched_source_position': True,
                      'source_position_tolerance': 0.001,
+                     'source_position_sigma': 0.001,
                      'h0_likelihood': True,
                      'prior_special' : prior_special,
                              }
@@ -303,25 +306,25 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = False
+run_sim = True
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
-    fitting_kwargs_list = [['PSO', {'sigma_scale': .1, 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 50, 'n_run': 100, 'walkerRatio': 10, 'sigma_scale': .1}]
+    fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
+            ['MCMC', {'n_burn': 1000, 'n_run': 2500, 'walkerRatio': 10, 'sigma_scale': .2}]
     ]
 
     start_time = time.time()
     chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
     kwargs_result = fitting_seq.best_fit()
 
-    file_name = 'mock_results_uldm_PL.pkl'
+    file_name = 'mock_results_uldm_PL5.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(kwargs_result, filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL.pkl'
+    file_name = 'mock_results_uldm_chain_PL5.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(chain_list, filedata)
     filedata.close()
@@ -330,12 +333,12 @@ if run_sim == True:
     print(end_time - start_time, 'total time needed for computation')
     print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
 else:
-    file_name = 'mock_results_uldm_PL.pkl'
+    file_name = 'mock_results_uldm_PL5.pkl'
     filedata = open(file_name, 'rb')
     kwargs_result = pickle.load(filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL.pkl'
+    file_name = 'mock_results_uldm_chain_PL5.pkl'
     filedata = open(file_name, 'rb')
     chain_list = pickle.load(filedata)
     filedata.close()
@@ -345,7 +348,7 @@ print('Final parameters given by MCMC: ', kwargs_result)
 from lenstronomy.Plots import chain_plot
 from lenstronomy.Plots.model_plot import ModelPlot
 
-make_figures = True
+make_figures = False
 if make_figures == True:
     modelPlot = ModelPlot(multi_band_list, kwargs_model_uldm, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
@@ -355,12 +358,17 @@ if make_figures == True:
     f, axes = modelPlot.plot_subtract_from_data_all()
     f.savefig('Plot_subtract_PL.png')
 
+make_chainPlot = False
 make_cornerPlot = True
-if make_cornerPlot == True:
+if make_chainPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
         chain_plot.plot_chain_list(chain_list, i)
+    chain_plot.plt.show()
+    chain_plot.plt.savefig('chainPlot_PL.png')
 
+
+if make_cornerPlot == True:
     sampler_type, samples_mcmc, param_mcmc, dist_mcmc  = chain_list[1]
 
     print("number of non-linear parameters in the MCMC process: ", len(param_mcmc))
@@ -378,7 +386,7 @@ if make_cornerPlot == True:
     num_param, param_list = param.num_param()
 
     mcmc_new_list = []
-    labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ \kappa_0 $", r"$ \theta_c $", r"$ m $", r"$ M_{sol} $",r"$ h0 $"]
+    labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ \kappa_0 $", r"$ \theta_c $", r"$ h0 $"]
     for i in range(len(samples_mcmc)):
         # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
         kwargs_result = param.args2kwargs(samples_mcmc[i])
@@ -390,10 +398,10 @@ if make_cornerPlot == True:
         e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
         phi_G, q = param_util.ellipticity2phi_q(e1, e2)
         kappa_0, theta_c = kwargs_result['kwargs_lens'][0]['kappa_0'], kwargs_result['kwargs_lens'][0]['theta_c']
-        m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
+        #  m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
         theta_E_MSD = theta_E / (1 - kappa_0)**(1/(gamma -1))
-        mcmc_new_list.append([gamma, theta_E_MSD, kappa_0, theta_c, m_log10, M_log10, h0])
+        mcmc_new_list.append([gamma, theta_E_MSD, kappa_0, theta_c, h0])
     plot = corner.corner(mcmc_new_list, labels=labels_new, show_titles=True)
-    plot.savefig('cornerPlot_PL.png')
+    plot.savefig('cornerPlot_PL5.png')
 
 
