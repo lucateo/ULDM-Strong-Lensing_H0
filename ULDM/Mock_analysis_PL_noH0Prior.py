@@ -5,11 +5,10 @@ import time
 import copy
 import corner
 import astropy.io.fits as pyfits
-import pickle
+import pickle, h5py
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
 from lenstronomy.LensModel.lens_model import LensModel
 from lenstronomy.Cosmo.lens_cosmo import LensCosmo
 from lenstronomy.LensModel.Solver.lens_equation_solver import LensEquationSolver
@@ -23,12 +22,13 @@ from lenstronomy.Util import kernel_util
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
 
-## Trying to simulate RXJ1131
+np.random.seed(42)
+
 # define lens configuration and cosmology (not for lens modelling)
 z_lens = 0.5
 z_source = 1.5
 from astropy.cosmology import FlatLambdaCDM
-cosmo = FlatLambdaCDM(H0=67.4, Om0=0.3, Ob0=0.)
+cosmo = FlatLambdaCDM(H0=74, Om0=0.3, Ob0=0.)
 
 # data specifics
 sigma_bkg = .05  #  background noise per pixel (Gaussian)
@@ -54,13 +54,12 @@ psf_class = PSF(**kwargs_psf)
 ########################### CHOOSING THE LENS MODELLING STUFF FOR THE MOCK IMAGE #################
 # lensing quantities
 gamma1, gamma2 = param_util.shear_polar2cartesian(phi=-0.5, gamma=0.09) # shear quantities
-kwargs_spep = {'theta_E': 1.4, 'gamma': 1.98, 'e1': 0.05, 'e2': 0.05, 'center_x': 0.0, 'center_y': 0.0 }
 kwargs_shear = {'gamma1': gamma1, 'gamma2': gamma2}  # shear values
-kwargs_uldm = {'kappa_0': 0.09, 'theta_c': 3.2, 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
+kwargs_spemd = {'theta_E': 1.57, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
-lens_model_list = ['SPEP', 'SHEAR', 'ULDM-BAR']
-kwargs_lens = [kwargs_spep, kwargs_shear, kwargs_uldm]
+lens_model_list = ['SPEP', 'SHEAR']
+kwargs_lens = [kwargs_spemd, kwargs_shear]
 lens_model_class = LensModel(lens_model_list=lens_model_list, z_lens=z_lens, z_source=z_source, cosmo=cosmo)
 
 # choice of source type
@@ -110,6 +109,7 @@ image_sim = image_sim + bkg + poisson
 data_class.update_data(image_sim)
 kwargs_data['image_data'] = image_sim
 
+lens_model_list = ['SPEP', 'SHEAR']
 kwargs_model = {'lens_model_list': lens_model_list,
                  'lens_light_model_list': lens_light_model_list,
                  'source_light_model_list': source_model_list,
@@ -170,7 +170,7 @@ kwargs_seeing = {'psf_type': 'GAUSSIAN', 'fwhm': psf_fwhm}
 
 from lenstronomy.Analysis.kinematics_api import KinematicsAPI
 kin_api = KinematicsAPI(z_lens, z_source, kwargs_model, cosmo=cosmo,
-                        lens_model_kinematics_bool=[True, False, True], light_model_kinematics_bool=[True],
+                        lens_model_kinematics_bool=[True, False], light_model_kinematics_bool=[True],
                         kwargs_aperture=kwargs_aperture, kwargs_seeing=kwargs_seeing,
                         anisotropy_model=anisotropy_model, kwargs_numerics_galkin=kwargs_numerics_galkin,
                         sampling_number=10000,  # numerical ray-shooting, should converge -> infinity
@@ -190,12 +190,11 @@ kwargs_lower_lens = []
 kwargs_upper_lens = []
 
 ## SPEP model
-## You have to put this, this means that the fixed parameters in this case are zero
 fixed_lens.append({})
-kwargs_lens_init.append({'theta_E': 1.5, 'gamma': 2, 'e1': 0, 'e2': 0., 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'theta_E': 0.2, 'gamma': 0.1, 'e1': 0.1, 'e2': 0.1, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'theta_E': 0.01, 'gamma': 1.8, 'e1': -0.5, 'e2': -0.5, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'theta_E': 10, 'gamma': 2.2, 'e1': 0.5, 'e2': 0.5, 'center_x': 10.0, 'center_y': 10.0})
+kwargs_lens_init.append({'theta_E': 1.6, 'gamma': 2, 'center_x': 0.0, 'center_y': 0, 'e1': 0, 'e2': 0.})
+kwargs_lens_sigma.append({'theta_E': .2, 'e1': 0.1, 'e2': 0.1, 'gamma': 0.1, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'theta_E': 0.01, 'e1': -0.5, 'e2': -0.5, 'gamma': 1.5, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'theta_E': 10, 'e1': 0.5, 'e2': 0.5, 'gamma': 2.5, 'center_x': 10, 'center_y': 10})
 
 ## SHEAR model
 fixed_lens.append({'ra_0': 0, 'dec_0': 0})
@@ -204,6 +203,14 @@ kwargs_lens_init.append({'gamma1': 0, 'gamma2': 0})
 kwargs_lens_sigma.append({'gamma1': 0.1, 'gamma2': 0.1})
 kwargs_lower_lens.append({'gamma1': -0.5, 'gamma2': -0.5})
 kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
+
+## ULDM model
+## You have to put this, this means that the fixed parameters in this case are zero
+fixed_lens.append({})
+kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 7, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 5, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'kappa_0': 0.01, 'theta_c': 0.1, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 10, 'center_x': 10.0, 'center_y': 10.0})
 
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
@@ -257,9 +264,9 @@ cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower
 
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-lens_model_list_PL = ['SPEP', 'SHEAR']
+lens_model_list_uldm = ['SPEP', 'SHEAR', 'ULDM-BAR']
 # Just names of the various models used, like ULDM, SERSIC etc.
-kwargs_model_PL = {'lens_model_list': lens_model_list_PL,
+kwargs_model_uldm = {'lens_model_list': lens_model_list_uldm,
                  'lens_light_model_list': lens_light_model_list,
                  'source_light_model_list': source_model_list,
                 'point_source_model_list': point_source_list
@@ -274,6 +281,7 @@ kwargs_params = {'lens_model': lens_params,
 # numerical options and fitting sequences
 num_source_model = len(source_model_list)
 kwargs_constraints = {'joint_source_with_point_source': [[0, 0]],
+		       'joint_lens_with_lens': [[0, 2, ['center_x', 'center_y']]],
                       'num_point_source_list': [4],
                       'solver_type': 'PROFILE_SHEAR',  # 'PROFILE', 'PROFILE_SHEAR', 'ELLIPSE', 'CENTER'
                       'h0_sampling' : True,
@@ -286,6 +294,7 @@ kwargs_likelihood = {'check_bounds': True,
                      'image_position_uncertainty': 0.004,
                      'check_matched_source_position': True,
                      'source_position_tolerance': 0.001,
+                     'source_position_sigma': 0.001,
                      'h0_likelihood': True,
                              }
 # kwargs_data contains the image arraay
@@ -301,25 +310,25 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = True
+run_sim = False
 
 if run_sim == True:
-    fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_PL, kwargs_constraints, kwargs_likelihood, kwargs_params)
+    fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 1000, 'n_run': 2500, 'walkerRatio': 10, 'sigma_scale': .2}]
+            ['MCMC', {'n_burn': 1000, 'n_run': 3500, 'walkerRatio': 10, 'sigma_scale': .2}]
     ]
 
     start_time = time.time()
     chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
     kwargs_result = fitting_seq.best_fit()
 
-    file_name = 'mock_results_uldm_Reverse.pkl'
+    file_name = 'mock_results_uldm_PL_noH0Prior.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(kwargs_result, filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_Reverse.pkl'
+    file_name = 'mock_results_uldm_chain_PL_noH0Prior.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(chain_list, filedata)
     filedata.close()
@@ -328,39 +337,41 @@ if run_sim == True:
     print(end_time - start_time, 'total time needed for computation')
     print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
 else:
-    file_name = 'mock_results_uldm_Reverse.pkl'
+    file_name = 'mock_results_uldm_PL_noH0Prior.pkl'
     filedata = open(file_name, 'rb')
     kwargs_result = pickle.load(filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_Reverse.pkl'
+    file_name = 'mock_results_uldm_chain_PL_noH0Prior.pkl'
     filedata = open(file_name, 'rb')
     chain_list = pickle.load(filedata)
     filedata.close()
 
 print('Final parameters given by MCMC: ', kwargs_result)
 
+
 from lenstronomy.Plots import chain_plot
 from lenstronomy.Plots.model_plot import ModelPlot
 
 make_figures = False
 if make_figures == True:
-    modelPlot = ModelPlot(multi_band_list, kwargs_model_PL, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
+    modelPlot = ModelPlot(multi_band_list, kwargs_model_uldm, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
-    f.savefig('Plot_main_Reverse.png')
+    f.savefig('Plot_main_PL_noH0Prior.png')
     f, axes = modelPlot.plot_separate()
-    f.savefig('Plot_separate_Reverse.png')
+    f.savefig('Plot_separate_PL_noH0Prior.png')
     f, axes = modelPlot.plot_subtract_from_data_all()
-    f.savefig('Plot_subtract_Reverse.png')
+    f.savefig('Plot_subtract_PL_noH0Prior.png')
 
 make_chainPlot = False
 make_cornerPlot = True
+reprocess_corner = False
 if make_chainPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
         chain_plot.plot_chain_list(chain_list, i)
     chain_plot.plt.show()
-    chain_plot.plt.savefig('chainPlot_Reverse.png')
+    chain_plot.plt.savefig('chainPlot_PL_noH0Prior.png')
 
 
 if make_cornerPlot == True:
@@ -375,24 +386,168 @@ if make_cornerPlot == True:
     from lenstronomy.Sampling.parameters import Param
     # make instance of parameter class with given model options, constraints and fixed parameters #
 
-    param = Param(kwargs_model_PL, fixed_lens, fixed_source, fixed_lens_light, fixed_ps, fixed_cosmo,
+    param = Param(kwargs_model_uldm, fixed_lens, fixed_source, fixed_lens_light, fixed_ps, fixed_cosmo,
                   kwargs_lens_init=kwargs_result['kwargs_lens'], **kwargs_constraints)
     # the number of non-linear parameters and their names #
     num_param, param_list = param.num_param()
+
     kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True,
-                         'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
-                        'fill_contours': True, 'alpha': 0.8}
-    mcmc_new_list = []
-    labels_new = [r"$\gamma$", r"$ \theta_E $", r"$ q $", r"$ h0 $"]
-    for i in range(len(samples_mcmc)):
-        # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
-        kwargs_result = param.args2kwargs(samples_mcmc[i])
-        h0 = kwargs_result['kwargs_special']['h0']
-        gamma = kwargs_result['kwargs_lens'][0]['gamma']
-        theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
-        e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
-        phi_G, q = param_util.ellipticity2phi_q(e1, e2)
-        mcmc_new_list.append([gamma, theta_E,  q, h0])
-    plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
-    plot.savefig('cornerPlot_Reverse.png')
+                     'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
+                    'fill_contours': True, 'alpha': 0.8}
+
+    truths = [kwargs_spemd['gamma'], kwargs_spemd['theta_E'], 0, 0, 74.3]
+
+    labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \log_{10} m $", r"$\log_{10} M $", r"$ h0 $"]
+    if reprocess_corner == True:
+        mcmc_new_list = []
+        mcmc_new_list2 = []
+        for i in range(len(samples_mcmc)):
+            # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
+            kwargs_result = param.args2kwargs(samples_mcmc[i])
+            h0 = kwargs_result['kwargs_special']['h0']
+            gamma = kwargs_result['kwargs_lens'][0]['gamma']
+            theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
+            e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
+            phi_G, q = param_util.ellipticity2phi_q(e1, e2)
+            kappa_0, theta_c = kwargs_result['kwargs_lens'][2]['kappa_0'], kwargs_result['kwargs_lens'][2]['theta_c']
+            cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
+            lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
+            m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
+            theta_E_MSD = theta_E / (1 - kappa_0)**(1/(gamma -1))
+            mcmc_new_list.append([gamma, theta_E_MSD, kappa_0, theta_c, h0])
+            mcmc_new_list2.append([gamma, theta_E_MSD, m_log10, M_log10, h0])
+
+        file_name = 'mock_corner_PL_noH0Prior.h5'
+        try:
+            #  filedata = open(file_name, 'rb')
+            #  joblib.dump(mcmc_new_list, file_name)
+            #  pickle.dump(mcmc_new_list, filedata)
+            #  filedata.close()
+            h5file = h5py.File(file_name, 'w')
+            h5file.create_dataset("dataset_mock", data=mcmc_new_list)
+            h5file.create_dataset("dataset_mock_masses", data=mcmc_new_list2)
+            h5file.close()
+        except:
+            print("The h5py stuff went wrong...")
+    else:
+        #  file_name = 'mock_corner_PL.pkl'
+        #  filedata = open(file_name, 'wb')
+        #  mcmc_new_list = pickle.load(filedata)
+        #  filedata.close()
+        file_name = 'mock_corner_PL_noH0Prior.h5'
+        h5file = h5py.File(file_name, 'r')
+        mcmc_new_list = h5file['dataset_mock'][:]
+        mcmc_new_list2 = h5file['dataset_mock_masses'][:]
+        h5file.close()
+        #  mcmc_new_list.tolist()
+    plot = corner.corner(mcmc_new_list2, labels=labels_new, **kwargs_corner)
+    plot.savefig('cornerPlot_PL_noH0Prior_masses.pdf')
+
+# clear plot
+plt.clf()
+plt.figure(figsize=(10,5))
+############## PLOT for allowed MST
+mcmc_new_list = np.array(mcmc_new_list)
+theta_core_posterior = mcmc_new_list[:, 3]
+kappa0_posterior = mcmc_new_list[:, 2]
+
+# linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
+theta_list = np.linspace(0, 10, 31)
+kappa0_sigma_list = []
+kappa0_mean_list = []
+
+for i in range(len(theta_list) - 1):
+    # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
+    # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
+    kappa0_select = kappa0_posterior[(theta_core_posterior > theta_list[i]) & (theta_core_posterior < theta_list[i+1])]
+    kappa0_sigma = np.std(kappa0_select)
+    kappa0_mean = np.mean(kappa0_select)
+    kappa0_sigma_list.append(kappa0_sigma)
+    kappa0_mean_list.append(kappa0_mean)
+kappa0_sigma_list = np.array(kappa0_sigma_list)
+kappa0_mean_list = np.array(kappa0_mean_list)
+
+# [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
+theta_array = (theta_list[1:] + theta_list[0:-1]) / 2
+## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
+plt.fill_between(theta_array, kappa0_sigma_list + kappa0_mean_list, 0.3, alpha=0.5, color='grey',
+                 label=r'$1-\sigma$ exclusion from imaging data')
+plt.fill_between(theta_array, - kappa0_sigma_list + kappa0_mean_list, 0, alpha=0.5, color='grey')
+plt.legend()
+plt.xlabel('core radius [arc seconds]', fontsize=20)
+plt.ylabel(r'$\kappa_0$', fontsize=20)
+plt.ylim([0.01, 0.3])
+plt.xlim([0.1, 10])
+
+# these are matplotlib.patch.Patch properties
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+# place a text box in upper left in axes coords
+#  plt.plot(theta_array)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.tight_layout()
+plt.savefig('kappa0_bounds_PL_noH0Prior.pdf')
+######################
+
+
+##### Exclusion plot with masses
+plt.clf()
+plt.figure(figsize=(10,5))
+############## PLOT for allowed MST
+mcmc_new_list = np.array(mcmc_new_list2)
+m_posterior = mcmc_new_list[:, 2]
+M_posterior = mcmc_new_list[:, 3]
+h0_posterior = mcmc_new_list[:,4]
+
+# linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
+m_list = np.linspace(-25.5, -23, 31)
+M_sigma_list = []
+M_mean_list = []
+
+for i in range(len(m_list) - 1):
+    # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
+    # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
+    #  M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) & (h0_posterior > 67.0) & (h0_posterior < 68.0) ]
+    M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) ]
+    M_sigma = np.std(M_select)
+    M_mean = np.mean(M_select)
+    M_sigma_list.append(M_sigma)
+    M_mean_list.append(M_mean)
+M_sigma_list = np.array(M_sigma_list)
+M_mean_list = np.array(M_mean_list)
+
+# [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
+m_array = (m_list[1:] + m_list[0:-1]) / 2
+## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
+plt.fill_between(m_array, M_sigma_list + M_mean_list, 13.5, alpha=0.5, color='grey',
+                 label=r'$1-\sigma$ exclusion from imaging data')
+plt.fill_between(m_array, - M_sigma_list + M_mean_list, 7, alpha=0.5, color='grey')
+plt.legend()
+plt.xlabel(r'$\log_{10} m $ [eV]', fontsize=20)
+plt.ylabel(r'$ \log_{10} M \  [M_\odot]$', fontsize=20)
+plt.ylim([8, 13.5])
+plt.xlim([-25.5, -23.5])
+
+# these are matplotlib.patch.Patch properties
+props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+# place a text box in upper left in axes coords
+#  plt.plot(m_array)
+plt.xticks(fontsize=15)
+plt.yticks(fontsize=15)
+plt.tight_layout()
+plt.savefig('M_bounds_PL_noH0Prior.pdf')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
