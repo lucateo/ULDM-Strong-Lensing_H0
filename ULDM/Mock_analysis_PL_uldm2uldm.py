@@ -5,7 +5,7 @@ import time
 import copy
 import corner
 import astropy.io.fits as pyfits
-import pickle
+import pickle, h5py
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -393,7 +393,7 @@ if make_cornerPlot == True:
                      'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
                     'fill_contours': True, 'alpha': 0.8}
 
-    truths = [kwargs_spemd['gamma'], kwargs_spemd['theta_E'], kwargs_uldm['kappa_0'], kwargs_uldm['theta_c'], 67.4]
+    truths = [kwargs_spep['gamma'], kwargs_spep['theta_E'], kwargs_uldm['kappa_0'], kwargs_uldm['theta_c'], 67.4]
 
     labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \kappa_0 $", r"$ \theta_{\rm c} $", r"$ h0 $"]
     if reprocess_corner == True:
@@ -429,7 +429,7 @@ if make_cornerPlot == True:
         mcmc_new_list = h5file['dataset_mock'][:]
         mcmc_new_list2 = h5file['dataset_mock_masses'][:]
         h5file.close()
-    plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
+    plot = corner.corner(mcmc_new_list, labels=labels_new, truths=truths, **kwargs_corner)
     plot.savefig('cornerPlot_PL_uldm2uldm.pdf')
 
 

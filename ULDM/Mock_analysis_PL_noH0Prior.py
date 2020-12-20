@@ -208,7 +208,7 @@ kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
 ## You have to put this, this means that the fixed parameters in this case are zero
 fixed_lens.append({})
 kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 7, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 5, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 4, 'center_x': 0.01, 'center_y': 0.01})
 kwargs_lower_lens.append({'kappa_0': 0.01, 'theta_c': 0.1, 'center_x': -10, 'center_y': -10})
 kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 10, 'center_x': 10.0, 'center_y': 10.0})
 
@@ -310,13 +310,13 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = False
+run_sim = True
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 1000, 'n_run': 3500, 'walkerRatio': 10, 'sigma_scale': .2}]
+            ['MCMC', {'n_burn': 1000, 'n_run': 4000, 'walkerRatio': 10, 'sigma_scale': .2}]
     ]
 
     start_time = time.time()
@@ -365,7 +365,7 @@ if make_figures == True:
 
 make_chainPlot = False
 make_cornerPlot = True
-reprocess_corner = False
+reprocess_corner = True
 if make_chainPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
@@ -397,7 +397,8 @@ if make_cornerPlot == True:
 
     truths = [kwargs_spemd['gamma'], kwargs_spemd['theta_E'], 0, 0, 74.3]
 
-    labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \log_{10} m $", r"$\log_{10} M $", r"$ h0 $"]
+    #labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \log_{10} m $", r"$\log_{10} M $", r"$ h0 $"]
+    labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \kappa_0 k $", r"$ \theta_{\rm c} $", r"$ h0 $"]
     if reprocess_corner == True:
         mcmc_new_list = []
         mcmc_new_list2 = []
@@ -440,8 +441,8 @@ if make_cornerPlot == True:
         mcmc_new_list2 = h5file['dataset_mock_masses'][:]
         h5file.close()
         #  mcmc_new_list.tolist()
-    plot = corner.corner(mcmc_new_list2, labels=labels_new, **kwargs_corner)
-    plot.savefig('cornerPlot_PL_noH0Prior_masses.pdf')
+    plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
+    plot.savefig('cornerPlot_PL_noH0Prior.pdf')
 
 # clear plot
 plt.clf()
