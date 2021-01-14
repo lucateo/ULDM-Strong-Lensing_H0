@@ -74,7 +74,7 @@ print('D_lens ' , D_Lens, ' Sigma_crit ', Sigma_c)
 mass3d = uldm_lens.mass_3d(100, kappa_0, theta_c) * const.arcsec**2 * Sigma_c * D_Lens**2
 print('Mass lens: ', np.log10(mass3d))
 
-mass3dPL = PL_lens.mass_3d_lens(20, theta_E, gamma) * const.arcsec**2 * Sigma_c * D_Lens**2
+mass3dPL = PL_lens.mass_3d_lens(5, theta_E, gamma) * const.arcsec**2 * Sigma_c * D_Lens**2
 print('Mass lens PL: ', np.log10(mass3dPL))
 
 m, M, rho0, lambda_sol = lens_cosmo.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
@@ -86,8 +86,13 @@ print('kappa0 ', kappa_0Trial, ' theta_c ', theta_cTrial, 'lambda ', lambda_Tria
 ####### Plotting stuff
 radius = np.arange(0.01, 10, 0.01)
 D_Lens = lens_cosmo.dd * 1000 # in kpc
+plt.rcParams.update({'font.size': 16, 'figure.autolayout': True})
+plt.figure(figsize=(8,10))
 plt.xscale('log')
 plt.yscale('log')
-# rho is in M_sun/parsec^3
-plt.plot(radius, (Sigma_c / D_Lens) /const.arcsec * uldm_lens.density(radius/D_Lens /const.arcsec, kappa_0, theta_c))
+plt.ylabel(r'$\rho[ M_\odot /\mathrm{pc}^3]$', fontsize=16)
+plt.xlabel(r'r [pc]', fontsize=16)
+plt.xlim(100, 10000)
+# rho is in M_sun/parsec^3, I put the radius in parsec in plot just for coherence
+plt.plot(radius*1000, (Sigma_c / D_Lens) /const.arcsec * uldm_lens.density(radius/D_Lens /const.arcsec, kappa_0, theta_c))
 plt.show()

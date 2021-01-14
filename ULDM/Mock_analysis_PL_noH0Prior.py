@@ -207,10 +207,14 @@ kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
 ## ULDM model
 ## You have to put this, this means that the fixed parameters in this case are zero
 fixed_lens.append({})
-kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 7, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 4, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'kappa_0': 0.01, 'theta_c': 0.1, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 10, 'center_x': 10.0, 'center_y': 10.0})
+#  kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 7, 'center_x': 0.0, 'center_y': 0})
+#  kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 4, 'center_x': 0.01, 'center_y': 0.01})
+#  kwargs_lower_lens.append({'kappa_0': 0.01, 'theta_c': 0.1, 'center_x': -10, 'center_y': -10})
+#  kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 10, 'center_x': 10.0, 'center_y': 10.0})
+kwargs_lens_init.append({'lambda_approx': 0.9, 'r_core': 7, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_sigma.append({'lambda_approx': 0.01, 'r_core': 3., 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'lambda_approx': 0.5, 'r_core': 0.1, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'lambda_approx': 1.0, 'r_core': 10, 'center_x': 10.0, 'center_y': 10.0})
 
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
@@ -264,7 +268,7 @@ cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower
 
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-lens_model_list_uldm = ['SPEP', 'SHEAR', 'ULDM-BAR']
+lens_model_list_uldm = ['SPEP', 'SHEAR', 'CORED_DENSITY_EXP_MST']
 # Just names of the various models used, like ULDM, SERSIC etc.
 kwargs_model_uldm = {'lens_model_list': lens_model_list_uldm,
                  'lens_light_model_list': lens_light_model_list,
@@ -316,19 +320,19 @@ if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 1000, 'n_run': 4000, 'walkerRatio': 10, 'sigma_scale': .2}]
+            ['MCMC', {'n_burn': 1000, 'n_run': 3000, 'walkerRatio': 10, 'sigma_scale': .2}]
     ]
 
     start_time = time.time()
     chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
     kwargs_result = fitting_seq.best_fit()
 
-    file_name = 'mock_results_uldm_PL_noH0Prior.pkl'
+    file_name = 'mock_results_uldm_PL_MST_noH0Prior.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(kwargs_result, filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL_noH0Prior.pkl'
+    file_name = 'mock_results_uldm_chain_PL_MST_noH0Prior.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(chain_list, filedata)
     filedata.close()
@@ -337,12 +341,12 @@ if run_sim == True:
     print(end_time - start_time, 'total time needed for computation')
     print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
 else:
-    file_name = 'mock_results_uldm_PL_noH0Prior.pkl'
+    file_name = 'mock_results_uldm_PL_MST_noH0Prior.pkl'
     filedata = open(file_name, 'rb')
     kwargs_result = pickle.load(filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL_noH0Prior.pkl'
+    file_name = 'mock_results_uldm_chain_PL_MST_noH0Prior.pkl'
     filedata = open(file_name, 'rb')
     chain_list = pickle.load(filedata)
     filedata.close()
@@ -410,20 +414,21 @@ if make_cornerPlot == True:
             theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
             e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
             phi_G, q = param_util.ellipticity2phi_q(e1, e2)
-            kappa_0, theta_c = kwargs_result['kwargs_lens'][2]['kappa_0'], kwargs_result['kwargs_lens'][2]['theta_c']
+            lambda_approx, theta_c = kwargs_result['kwargs_lens'][2]['lambda_approx'], kwargs_result['kwargs_lens'][2]['r_core']
+            # Remember that the h0 coming out from this model is actually h0/lambda of the non-MSD subtract model, same for theta_E
+            h0 = h0 * lambda_approx
+            kappa_0 = 1- lambda_approx
+            theta_E_MSD = theta_E * (1 - kappa_0)**(1/(gamma -1))
+
             cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
             lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
-            m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
-            theta_E_MSD = theta_E / (1 - kappa_0)**(1/(gamma -1))
+            m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E_MSD)
+
             mcmc_new_list.append([gamma, theta_E_MSD, kappa_0, theta_c, h0])
             mcmc_new_list2.append([gamma, theta_E_MSD, m_log10, M_log10, h0])
 
-        file_name = 'mock_corner_PL_noH0Prior.h5'
+        file_name = 'mock_corner_PL_MST_noH0Prior.h5'
         try:
-            #  filedata = open(file_name, 'rb')
-            #  joblib.dump(mcmc_new_list, file_name)
-            #  pickle.dump(mcmc_new_list, filedata)
-            #  filedata.close()
             h5file = h5py.File(file_name, 'w')
             h5file.create_dataset("dataset_mock", data=mcmc_new_list)
             h5file.create_dataset("dataset_mock_masses", data=mcmc_new_list2)
@@ -431,18 +436,14 @@ if make_cornerPlot == True:
         except:
             print("The h5py stuff went wrong...")
     else:
-        #  file_name = 'mock_corner_PL.pkl'
-        #  filedata = open(file_name, 'wb')
-        #  mcmc_new_list = pickle.load(filedata)
-        #  filedata.close()
-        file_name = 'mock_corner_PL_noH0Prior.h5'
+        file_name = 'mock_corner_PL_MST_noH0Prior.h5'
         h5file = h5py.File(file_name, 'r')
         mcmc_new_list = h5file['dataset_mock'][:]
         mcmc_new_list2 = h5file['dataset_mock_masses'][:]
         h5file.close()
         #  mcmc_new_list.tolist()
     plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
-    plot.savefig('cornerPlot_PL_noH0Prior.pdf')
+    plot.savefig('cornerPlot_PL_MST_noH0Prior.pdf')
 
 # clear plot
 plt.clf()
@@ -487,7 +488,7 @@ props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
 plt.xticks(fontsize=15)
 plt.yticks(fontsize=15)
 plt.tight_layout()
-plt.savefig('kappa0_bounds_PL_noH0Prior.pdf')
+plt.savefig('kappa0_bounds_PL_MST_noH0Prior.pdf')
 ######################
 
 
@@ -536,7 +537,7 @@ props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
 plt.xticks(fontsize=15)
 plt.yticks(fontsize=15)
 plt.tight_layout()
-plt.savefig('M_bounds_PL_noH0Prior.pdf')
+plt.savefig('M_bounds_PL_MST_noH0Prior.pdf')
 
 
 
