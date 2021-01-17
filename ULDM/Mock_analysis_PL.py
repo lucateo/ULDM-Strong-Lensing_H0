@@ -346,13 +346,13 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = True
+run_sim = False
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 100, 'n_run': 500, 'walkerRatio': 10, 'sigma_scale': .2}]
+            ['MCMC', {'n_burn': 3200, 'n_run': 2000, 'walkerRatio': 10, 'sigma_scale': .2}]
     ]
 
     start_time = time.time()
@@ -400,7 +400,7 @@ if make_figures == True:
 
 make_chainPlot = False
 make_cornerPlot = True
-reprocess_corner = True
+reprocess_corner = False
 if make_chainPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
@@ -431,7 +431,11 @@ if make_cornerPlot == True:
                     'fill_contours': True, 'alpha': 0.8}
 
     mcmc_new_list = []
+    mcmc_new_list2 = []
+
     labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \kappa_0 $", r"$ \theta_c $", r"$ h0 $"]
+    labels_new_masses = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \log_{10} m $ [eV]", r"$ \log_{10} M  [M_\odot]$", r"$ h0 $"]
+
     if reprocess_corner == True:
         for i in range(len(samples_mcmc)):
             # transform the parameter position of the MCMC chain in a lenstronomy convention with keyword arguments #
@@ -442,13 +446,18 @@ if make_cornerPlot == True:
             e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
             phi_G, q = param_util.ellipticity2phi_q(e1, e2)
             lambda_approx, theta_c = kwargs_result['kwargs_lens'][2]['lambda_approx'], kwargs_result['kwargs_lens'][2]['r_core']
+
             # Remember that the h0 coming out from this model is actually h0/lambda of the non-MSD subtract model
             h0 = h0 * lambda_approx
-            #  cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
-            #  lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
-            #  m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
             theta_E_MSD = theta_E * (lambda_approx)**(1/(gamma -1))
-            mcmc_new_list.append([gamma, theta_E_MSD, lambda_approx, theta_c, h0])
+            kappa_0 = 1- lambda_approx
+
+            cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
+            lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
+            m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E_MSD)
+            mcmc_new_list.append([gamma, theta_E_MSD, kappa_0, theta_c, h0])
+            mcmc_new_list2.append([gamma, theta_E_MSD, m_log10, M_log10, h0])
+
         file_name = 'mock_corner_PL_MST.h5'
         try:
             h5file = h5py.File(file_name, 'w')
@@ -464,7 +473,102 @@ if make_cornerPlot == True:
         mcmc_new_list2 = h5file['dataset_mock_masses'][:]
         h5file.close()
 
-    plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
-    plot.savefig('cornerPlot_PL_MST.png')
+    plot = corner.corner(mcmc_new_list2, labels=labels_new_masses, **kwargs_corner)
+    plot.savefig('cornerPlot_PL_MST_masses.pdf')
 
+make_bound_diagram = True
+if make_bound_diagram == True:
+    # clear plot
+    plt.clf()
+    plt.figure(figsize=(10,5))
+    ############## PLOT for allowed MST
+    mcmc_new_list = np.array(mcmc_new_list)
+    theta_core_posterior = mcmc_new_list[:, 3]
+    kappa0_posterior = mcmc_new_list[:, 2]
+
+    # linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
+    theta_list = np.linspace(0, 10, 31)
+    kappa0_sigma_list = []
+    kappa0_mean_list = []
+
+    for i in range(len(theta_list) - 1):
+        # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
+        # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
+        kappa0_select = kappa0_posterior[(theta_core_posterior > theta_list[i]) & (theta_core_posterior < theta_list[i+1])]
+        kappa0_sigma = np.std(kappa0_select)
+        kappa0_mean = np.mean(kappa0_select)
+        kappa0_sigma_list.append(kappa0_sigma)
+        kappa0_mean_list.append(kappa0_mean)
+    kappa0_sigma_list = np.array(kappa0_sigma_list)
+    kappa0_mean_list = np.array(kappa0_mean_list)
+
+    # [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
+    theta_array = (theta_list[1:] + theta_list[0:-1]) / 2
+    ## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
+    plt.fill_between(theta_array, kappa0_sigma_list + kappa0_mean_list, 0.3, alpha=0.5, color='grey',
+                     label=r'$1-\sigma$ exclusion from imaging data')
+    plt.fill_between(theta_array, - kappa0_sigma_list + kappa0_mean_list, 0, alpha=0.5, color='grey')
+    plt.legend()
+    plt.xlabel('core radius [arc seconds]', fontsize=20)
+    plt.ylabel(r'$\kappa_0$', fontsize=20)
+    plt.ylim([0.01, 0.15])
+    plt.xlim([0.1, 10])
+
+    # these are matplotlib.patch.Patch properties
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    #  plt.plot(theta_array)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.tight_layout()
+    plt.savefig('kappa0_bounds_PL_MST.pdf')
+    ######################
+
+
+    ##### Exclusion plot with masses
+    plt.clf()
+    plt.figure(figsize=(10,5))
+    ############## PLOT for allowed MST
+    mcmc_new_list = np.array(mcmc_new_list2)
+    m_posterior = mcmc_new_list[:, 2]
+    M_posterior = mcmc_new_list[:, 3]
+    h0_posterior = mcmc_new_list[:,4]
+
+    # linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
+    m_list = np.linspace(-25.5, -23, 31)
+    M_sigma_list = []
+    M_mean_list = []
+
+    for i in range(len(m_list) - 1):
+        # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
+        # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
+        #  M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) & (h0_posterior > 67.0) & (h0_posterior < 68.0) ]
+        M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) ]
+        M_sigma = np.std(M_select)
+        M_mean = np.mean(M_select)
+        M_sigma_list.append(M_sigma)
+        M_mean_list.append(M_mean)
+    M_sigma_list = np.array(M_sigma_list)
+    M_mean_list = np.array(M_mean_list)
+
+    # [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
+    m_array = (m_list[1:] + m_list[0:-1]) / 2
+    ## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
+    plt.fill_between(m_array, M_sigma_list + M_mean_list, 13.5, alpha=0.5, color='grey',
+                     label=r'$1-\sigma$ exclusion from imaging data')
+    plt.fill_between(m_array, - M_sigma_list + M_mean_list, 7, alpha=0.5, color='grey')
+    plt.legend()
+    plt.xlabel(r'$\log_{10} m $ [eV]', fontsize=20)
+    plt.ylabel(r'$ \log_{10} M \  [M_\odot]$', fontsize=20)
+    plt.ylim([8, 13.5])
+    plt.xlim([-25.5, -23.5])
+
+    # these are matplotlib.patch.Patch properties
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    #  plt.plot(m_array)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.tight_layout()
+    plt.savefig('M_bounds_PL_MST.pdf')
 

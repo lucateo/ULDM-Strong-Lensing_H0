@@ -27,7 +27,7 @@ lens_cosmo2 = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo2)
 # define parameter values of lens models
 kappa_0 = 0.09
 theta_c = 5.10
-theta_E = 1.423
+theta_E = 1.56
 gamma = 1.96
 e1 = 0.1
 e2 = 0.1
@@ -75,12 +75,13 @@ mass3d = uldm_lens.mass_3d(100, kappa_0, theta_c) * const.arcsec**2 * Sigma_c * 
 print('Mass lens: ', np.log10(mass3d))
 
 mass3dPL = PL_lens.mass_3d_lens(5, theta_E, gamma) * const.arcsec**2 * Sigma_c * D_Lens**2
-print('Mass lens PL: ', np.log10(mass3dPL))
+mass3dPL_MSD = PL_lens.mass_3d_lens(5, theta_E*(1-kappa_0), gamma) * const.arcsec**2 * Sigma_c * D_Lens**2
+print('Mass lens PL: ', np.log10(mass3dPL), 'Mass lens PL MSD ', np.log10(mass3dPL_MSD))
 
-m, M, rho0, lambda_sol = lens_cosmo.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
+m, M, rho0, lambda_sol = lens_cosmo.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E*(1-kappa_0))
 print('mass ', m, 'Mass Soliton ', M, 'rho0 phys ', rho0, 'lambda ', lambda_sol)
 
-kappa_0Trial, theta_cTrial, lambda_Trial = lens_cosmo.ULDM_BAR_phys2angles(m, M, theta_E)
+kappa_0Trial, theta_cTrial, lambda_Trial = lens_cosmo.ULDM_BAR_phys2angles(m, M, theta_E*(1 - kappa_0))
 print('kappa0 ', kappa_0Trial, ' theta_c ', theta_cTrial, 'lambda ', lambda_Trial)
 
 ####### Plotting stuff

@@ -211,8 +211,8 @@ fixed_lens.append({})
 #  kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 4, 'center_x': 0.01, 'center_y': 0.01})
 #  kwargs_lower_lens.append({'kappa_0': 0.01, 'theta_c': 0.1, 'center_x': -10, 'center_y': -10})
 #  kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 10, 'center_x': 10.0, 'center_y': 10.0})
-kwargs_lens_init.append({'lambda_approx': 0.9, 'r_core': 7, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'lambda_approx': 0.01, 'r_core': 3., 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lens_init.append({'lambda_approx': 0.9, 'r_core': 6.0, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_sigma.append({'lambda_approx': 0.1, 'r_core': 5.0, 'center_x': 0.01, 'center_y': 0.01})
 kwargs_lower_lens.append({'lambda_approx': 0.5, 'r_core': 0.1, 'center_x': -10, 'center_y': -10})
 kwargs_upper_lens.append({'lambda_approx': 1.0, 'r_core': 10, 'center_x': 10.0, 'center_y': 10.0})
 
@@ -320,7 +320,7 @@ if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 1000, 'n_run': 3000, 'walkerRatio': 10, 'sigma_scale': .2}]
+            ['MCMC', {'n_burn': 3000, 'n_run': 2000, 'walkerRatio': 10, 'sigma_scale': .2}]
     ]
 
     start_time = time.time()
@@ -402,7 +402,7 @@ if make_cornerPlot == True:
     truths = [kwargs_spemd['gamma'], kwargs_spemd['theta_E'], 0, 0, 74.3]
 
     #labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \log_{10} m $", r"$\log_{10} M $", r"$ h0 $"]
-    labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \kappa_0 k $", r"$ \theta_{\rm c} $", r"$ h0 $"]
+    labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \kappa_0  $", r"$ \theta_{\rm c} $", r"$ h0 $"]
     if reprocess_corner == True:
         mcmc_new_list = []
         mcmc_new_list2 = []
@@ -445,99 +445,101 @@ if make_cornerPlot == True:
     plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
     plot.savefig('cornerPlot_PL_MST_noH0Prior.pdf')
 
-# clear plot
-plt.clf()
-plt.figure(figsize=(10,5))
-############## PLOT for allowed MST
-mcmc_new_list = np.array(mcmc_new_list)
-theta_core_posterior = mcmc_new_list[:, 3]
-kappa0_posterior = mcmc_new_list[:, 2]
+make_bound_diagram = True
+if make_bound_diagram == True:
+    # clear plot
+    plt.clf()
+    plt.figure(figsize=(10,5))
+    ############## PLOT for allowed MST
+    mcmc_new_list = np.array(mcmc_new_list)
+    theta_core_posterior = mcmc_new_list[:, 3]
+    kappa0_posterior = mcmc_new_list[:, 2]
 
-# linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
-theta_list = np.linspace(0, 10, 31)
-kappa0_sigma_list = []
-kappa0_mean_list = []
+    # linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
+    theta_list = np.linspace(0, 10, 31)
+    kappa0_sigma_list = []
+    kappa0_mean_list = []
 
-for i in range(len(theta_list) - 1):
-    # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
-    # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
-    kappa0_select = kappa0_posterior[(theta_core_posterior > theta_list[i]) & (theta_core_posterior < theta_list[i+1])]
-    kappa0_sigma = np.std(kappa0_select)
-    kappa0_mean = np.mean(kappa0_select)
-    kappa0_sigma_list.append(kappa0_sigma)
-    kappa0_mean_list.append(kappa0_mean)
-kappa0_sigma_list = np.array(kappa0_sigma_list)
-kappa0_mean_list = np.array(kappa0_mean_list)
+    for i in range(len(theta_list) - 1):
+        # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
+        # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
+        kappa0_select = kappa0_posterior[(theta_core_posterior > theta_list[i]) & (theta_core_posterior < theta_list[i+1])]
+        kappa0_sigma = np.std(kappa0_select)
+        kappa0_mean = np.mean(kappa0_select)
+        kappa0_sigma_list.append(kappa0_sigma)
+        kappa0_mean_list.append(kappa0_mean)
+    kappa0_sigma_list = np.array(kappa0_sigma_list)
+    kappa0_mean_list = np.array(kappa0_mean_list)
 
-# [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
-theta_array = (theta_list[1:] + theta_list[0:-1]) / 2
-## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
-plt.fill_between(theta_array, kappa0_sigma_list + kappa0_mean_list, 0.3, alpha=0.5, color='grey',
-                 label=r'$1-\sigma$ exclusion from imaging data')
-plt.fill_between(theta_array, - kappa0_sigma_list + kappa0_mean_list, 0, alpha=0.5, color='grey')
-plt.legend()
-plt.xlabel('core radius [arc seconds]', fontsize=20)
-plt.ylabel(r'$\kappa_0$', fontsize=20)
-plt.ylim([0.01, 0.3])
-plt.xlim([0.1, 10])
+    # [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
+    theta_array = (theta_list[1:] + theta_list[0:-1]) / 2
+    ## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
+    plt.fill_between(theta_array, kappa0_sigma_list + kappa0_mean_list, 0.3, alpha=0.5, color='grey',
+                     label=r'$1-\sigma$ exclusion from imaging data')
+    plt.fill_between(theta_array, - kappa0_sigma_list + kappa0_mean_list, 0, alpha=0.5, color='grey')
+    plt.legend()
+    plt.xlabel('core radius [arc seconds]', fontsize=20)
+    plt.ylabel(r'$\kappa_0$', fontsize=20)
+    plt.ylim([0.01, 0.3])
+    plt.xlim([0.1, 10])
 
-# these are matplotlib.patch.Patch properties
-props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-# place a text box in upper left in axes coords
-#  plt.plot(theta_array)
-plt.xticks(fontsize=15)
-plt.yticks(fontsize=15)
-plt.tight_layout()
-plt.savefig('kappa0_bounds_PL_MST_noH0Prior.pdf')
-######################
+    # these are matplotlib.patch.Patch properties
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    #  plt.plot(theta_array)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.tight_layout()
+    plt.savefig('kappa0_bounds_PL_MST_noH0Prior.pdf')
+    ######################
 
 
-##### Exclusion plot with masses
-plt.clf()
-plt.figure(figsize=(10,5))
-############## PLOT for allowed MST
-mcmc_new_list = np.array(mcmc_new_list2)
-m_posterior = mcmc_new_list[:, 2]
-M_posterior = mcmc_new_list[:, 3]
-h0_posterior = mcmc_new_list[:,4]
+    ##### Exclusion plot with masses
+    plt.clf()
+    plt.figure(figsize=(10,5))
+    ############## PLOT for allowed MST
+    mcmc_new_list = np.array(mcmc_new_list2)
+    m_posterior = mcmc_new_list[:, 2]
+    M_posterior = mcmc_new_list[:, 3]
+    h0_posterior = mcmc_new_list[:,4]
 
-# linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
-m_list = np.linspace(-25.5, -23, 31)
-M_sigma_list = []
-M_mean_list = []
+    # linear spacing with 31 steps, 20 is the assumed maximum value of theta_c
+    m_list = np.linspace(-25.5, -23, 31)
+    M_sigma_list = []
+    M_mean_list = []
 
-for i in range(len(m_list) - 1):
-    # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
-    # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
-    #  M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) & (h0_posterior > 67.0) & (h0_posterior < 68.0) ]
-    M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) ]
-    M_sigma = np.std(M_select)
-    M_mean = np.mean(M_select)
-    M_sigma_list.append(M_sigma)
-    M_mean_list.append(M_mean)
-M_sigma_list = np.array(M_sigma_list)
-M_mean_list = np.array(M_mean_list)
+    for i in range(len(m_list) - 1):
+        # For a fixed small interval of theta_core, finds all the indexes for kappa0 that correspond to that interval of theta_core; you will end up
+        # with an array of scattered kappa0 values, corresponding to the theta_core selected interval
+        #  M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) & (h0_posterior > 67.0) & (h0_posterior < 68.0) ]
+        M_select = M_posterior[(m_posterior > m_list[i]) & (m_posterior < m_list[i+1]) ]
+        M_sigma = np.std(M_select)
+        M_mean = np.mean(M_select)
+        M_sigma_list.append(M_sigma)
+        M_mean_list.append(M_mean)
+    M_sigma_list = np.array(M_sigma_list)
+    M_mean_list = np.array(M_mean_list)
 
-# [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
-m_array = (m_list[1:] + m_list[0:-1]) / 2
-## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
-plt.fill_between(m_array, M_sigma_list + M_mean_list, 13.5, alpha=0.5, color='grey',
-                 label=r'$1-\sigma$ exclusion from imaging data')
-plt.fill_between(m_array, - M_sigma_list + M_mean_list, 7, alpha=0.5, color='grey')
-plt.legend()
-plt.xlabel(r'$\log_{10} m $ [eV]', fontsize=20)
-plt.ylabel(r'$ \log_{10} M \  [M_\odot]$', fontsize=20)
-plt.ylim([8, 13.5])
-plt.xlim([-25.5, -23.5])
+    # [1:] = all elements but the first, [0:-1] = all elements but the last; it is a mean value for r, given the intervals defined above
+    m_array = (m_list[1:] + m_list[0:-1]) / 2
+    ## Here assume the mean for lambda is one; for each value of theta_core, add/subtract the kappa0_sigma value
+    plt.fill_between(m_array, M_sigma_list + M_mean_list, 13.5, alpha=0.5, color='grey',
+                     label=r'$1-\sigma$ exclusion from imaging data')
+    plt.fill_between(m_array, - M_sigma_list + M_mean_list, 7, alpha=0.5, color='grey')
+    plt.legend()
+    plt.xlabel(r'$\log_{10} m $ [eV]', fontsize=20)
+    plt.ylabel(r'$ \log_{10} M \  [M_\odot]$', fontsize=20)
+    plt.ylim([8, 13.5])
+    plt.xlim([-25.5, -23.5])
 
-# these are matplotlib.patch.Patch properties
-props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-# place a text box in upper left in axes coords
-#  plt.plot(m_array)
-plt.xticks(fontsize=15)
-plt.yticks(fontsize=15)
-plt.tight_layout()
-plt.savefig('M_bounds_PL_MST_noH0Prior.pdf')
+    # these are matplotlib.patch.Patch properties
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    #  plt.plot(m_array)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.tight_layout()
+    plt.savefig('M_bounds_PL_MST_noH0Prior.pdf')
 
 
 

@@ -206,10 +206,10 @@ kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
 ## ULDM model
 ## You have to put this, this means that the fixed parameters in this case are zero
 fixed_lens.append({})
-kwargs_lens_init.append({'kappa_0': 0.1, 'theta_c': 7, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 5, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'kappa_0': 0.01, 'theta_c': 0.1, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'kappa_0': 1.0, 'theta_c': 10, 'center_x': 10.0, 'center_y': 10.0})
+kwargs_lens_init.append({'lambda_approx': 0.9, 'r_core': 7, 'center_x': 0.0, 'center_y': 0})
+kwargs_lens_sigma.append({'lambda_approx': 0.1, 'r_core': 5, 'center_x': 0.01, 'center_y': 0.01})
+kwargs_lower_lens.append({'lambda_approx': 0.5, 'r_core': 0.1, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'lambda_approx': 1.0, 'r_core': 10, 'center_x': 10.0, 'center_y': 10.0})
 
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
@@ -263,7 +263,7 @@ cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower
 
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-lens_model_list_uldm = ['SPEP', 'SHEAR', 'ULDM-BAR']
+lens_model_list_uldm = ['SPEP', 'SHEAR', 'CORED_DENSITY_EXP_MST']
 # Just names of the various models used, like ULDM, SERSIC etc.
 kwargs_model_uldm = {'lens_model_list': lens_model_list_uldm,
                  'lens_light_model_list': lens_light_model_list,
@@ -315,7 +315,7 @@ if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 1000, 'n_run': 4000, 'walkerRatio': 10, 'sigma_scale': .2}]
+            ['MCMC', {'n_burn': 3500, 'n_run': 2000, 'walkerRatio': 10, 'sigma_scale': .2}]
     ]
 
     start_time = time.time()
@@ -363,7 +363,7 @@ if make_figures == True:
     f.savefig('Plot_subtract_PL_uldm2uldm.png')
 
 make_chainPlot = False
-reprocess_corner = True
+reprocess_corner = False
 make_cornerPlot = True
 if make_chainPlot == True:
     # Plot the MonteCarlo
@@ -407,11 +407,16 @@ if make_cornerPlot == True:
             theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
             e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
             phi_G, q = param_util.ellipticity2phi_q(e1, e2)
-            kappa_0, theta_c = kwargs_result['kwargs_lens'][2]['kappa_0'], kwargs_result['kwargs_lens'][2]['theta_c']
+
+            lambda_approx, theta_c = kwargs_result['kwargs_lens'][2]['lambda_approx'], kwargs_result['kwargs_lens'][2]['r_core']
+            # Remember that the h0 coming out from this model is actually h0/lambda of the non-MSD subtract model
+            h0 = h0 * lambda_approx
+            theta_E_MSD = theta_E * (lambda_approx)**(1/(gamma -1))
+            kappa_0 = 1- lambda_approx
+
             cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
             lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
-            m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E)
-            theta_E_MSD = theta_E / (1 - kappa_0)**(1/(gamma -1))
+            m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E_MSD)
             mcmc_new_list.append([gamma, theta_E_MSD, kappa_0, theta_c, h0])
             mcmc_new_list2.append([gamma, theta_E_MSD, m_log10, M_log10, h0])
 
@@ -428,6 +433,8 @@ if make_cornerPlot == True:
         h5file = h5py.File(file_name, 'r')
         mcmc_new_list = h5file['dataset_mock'][:]
         mcmc_new_list2 = h5file['dataset_mock_masses'][:]
+        #  mcmc_new_list2 = h5file['dataset_mock_masses'][240000:]
+        #  print(len(mcmc_new_list)) #
         h5file.close()
     plot = corner.corner(mcmc_new_list, labels=labels_new, truths=truths, **kwargs_corner)
     plot.savefig('cornerPlot_PL_uldm2uldm.pdf')

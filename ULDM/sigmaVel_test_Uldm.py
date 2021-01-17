@@ -23,6 +23,11 @@ from lenstronomy.Util import kernel_util
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
 
+import lenstronomy.Util.constants as const
+from lenstronomy.LensModel.Profiles.spep import SPEP
+
+
+
 ## Trying to simulate RXJ1131
 # define lens configuration and cosmology (not for lens modelling)
 z_lens = 0.5
@@ -61,9 +66,11 @@ kwargs_shear = {'gamma1': gamma1, 'gamma2': gamma2}  # shear values
 
 theta_E = 1.57
 kappa_0 = 0.09
-theta_c = 8.0
+theta_c = 3.0
+gamma = 1.98
 
-kwargs_spemd = {'theta_E': theta_E, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
+kwargs_spemd = {'theta_E': theta_E, 'gamma': gamma, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
+kwargs_spemd_MST = {'theta_E': theta_E*(1 - kappa_0), 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
 kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': theta_c, 'center_x': 0.0, 'center_y': 0.0}  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
@@ -71,10 +78,24 @@ lens_model_list = ['SPEP', 'SHEAR']
 lens_model_list_uldm = ['SPEP', 'SHEAR', 'ULDM-BAR']
 
 kwargs_lens = [kwargs_spemd, kwargs_shear]
-kwargs_lens_uldm = [kwargs_spemd, kwargs_shear, kwargs_uldm]
+kwargs_lens_uldm = [kwargs_spemd_MST, kwargs_shear, kwargs_uldm]
 
 lens_model_class = LensModel(lens_model_list=lens_model_list, z_lens=z_lens, z_source=z_source, cosmo=cosmo)
 lens_model_class_uldm = LensModel(lens_model_list=lens_model_list_uldm, z_lens=z_lens, z_source=z_source, cosmo=cosmo_cmb)
+
+m, M, rho0, lambda_sol = lens_cosmo_cmb.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E*(1-kappa_0))
+print('mass ', m, 'Mass Soliton ', M, 'rho0 phys ', rho0, 'lambda ', lambda_sol)
+
+D_Lens = lens_cosmo.dd * 10**6
+Sigma_c = lens_cosmo.sigma_crit * 10**(-12)
+D_Lens_cmb = lens_cosmo_cmb.dd * 10**6
+Sigma_c_cmb = lens_cosmo_cmb.sigma_crit * 10**(-12)
+
+PL_lens = SPEP()
+mass3dPL = PL_lens.mass_3d_lens(5, theta_E, gamma) * const.arcsec**2 * Sigma_c * D_Lens**2
+mass3dPL_MSD = PL_lens.mass_3d_lens(5, theta_E*(1 - kappa_0), gamma) * const.arcsec**2 * Sigma_c_cmb * D_Lens_cmb**2
+
+print('Mass lens PL: ', np.log10(mass3dPL), ' Mass lens PL with MSD', np.log10(mass3dPL_MSD), ' Mass PL with MSD + ULDM', np.log10(mass3dPL_MSD + 10**M))
 
 
 # choice of source type
@@ -158,8 +179,9 @@ print(vel_disp_uldm, 'velocity dispersion ULDM in km/s')
 
 
 ### Velocity dispersion dependence with core
+plot_vel = True
 plot_masses = False # put to True if you want the plot with the masses
-if plot_masses == False:
+if plot_vel == True:
     def velocity_dependence(kwargs_lens, kappa0_list, theta_core):
 
         kwargs_lens_result = copy.deepcopy(kwargs_lens)
@@ -180,13 +202,13 @@ if plot_masses == False:
             kwargs_lens_kin[2]['theta_c'] = theta_core
             kwargs_lens_kin[0]['theta_E'] = kwargs_lens[0]['theta_E'] * (1 - kappa0)
 
-            vel_disp = kin_api.velocity_dispersion(kwargs_lens_kin, kwargs_lens_light, kwargs_anisotropy, r_eff=r_eff, theta_E=None, kappa_ext=kappa_ext)
+            vel_disp = kin_api_uldm.velocity_dispersion(kwargs_lens_kin, kwargs_lens_light, kwargs_anisotropy, r_eff=r_eff, theta_E=None, kappa_ext=kappa_ext)
             vel_disp_list.append(vel_disp)
         return np.array(vel_disp_list), vel_disp_0
 
     # Plot with theta_c, kappa_0
-    kappa0_list = np.linspace(0.01, 0.3, 20)
-    theta_core_list = [0.1, 5, 10]
+    kappa0_list = np.linspace(0.01, 0.2, 20)
+    theta_core_list = [0.5, 5, 10]
     vel_disp_list_r = []
     vel_disp_0_r = []
     for theta_core in theta_core_list:
@@ -202,7 +224,8 @@ if plot_masses == False:
         vel_disp_0 = vel_disp_0_r[i]
 
         axes[0].plot(kappa0_list, vel_disp_list, label=r'$\sigma^{\rm P}$ for $\theta_{\rm core} =$'+str(theta_core_list[i]))
-    axes[0].plot(kappa0_list, vel_disp_0*np.sqrt(1 - kappa0_list), 'k--', label=r"$\sigma^{\rm P} = (1 - \kappa_0)^{1/2} \sigma^{\rm P}(\kappa_0 = 0)})$")
+    #  axes[0].plot(kappa0_list, vel_disp_0*np.ones(20), 'k--', label=r"$\sigma^{\rm P} = (1 - \kappa_0)^{1/2} \sigma^{\rm P}(\kappa_0 = 0)$")
+    axes[0].plot(kappa0_list, vel_disp_0*np.ones(20), 'k--', label=r"$\sigma^{\rm P} = \sigma^{\rm P}(\kappa_0 = 0)$")
     axes[0].set_ylim([220, 270])
     axes[0].set_ylabel(r'$\sigma^{\rm P}$ [km/s]', fontsize=20)
     axes[0].legend(fontsize=12)
@@ -211,21 +234,21 @@ if plot_masses == False:
         vel_disp_list = vel_disp_list_r[i]
         vel_disp_0 = vel_disp_0_r[i]
 
-        axes[1].plot(kappa0_list, (vel_disp_list - vel_disp_0*np.sqrt(1 - kappa0_list)) / vel_disp_list , label=r'$\sigma^{\rm P}(\kappa_{\lambda_{\rm c}})$ for $\theta_{\rm c} =$'+str(theta_core_list[i]))
-    axes[1].set_ylabel(r'$\Delta \sigma^{\rm P} / \sigma^{\rm P}$', fontsize=20)
+        axes[1].plot(kappa0_list, (vel_disp_list - vel_disp_0) / vel_disp_0 , label=r'$\sigma^{\rm P}(\kappa_{\lambda_{\rm c}})$ for $\theta_{\rm c} =$'+str(theta_core_list[i]))
+    axes[1].set_ylabel(r'$\Delta \sigma^{\rm P} / \sigma^{\rm P}_0 $', fontsize=20)
     axes[1].plot([0, 2], [0, 0], ':k')
-    axes[1].set_ylim([-0.01, 0.01])
-    plt.xlim([0.01, 0.3])
+    axes[1].set_ylim([-0.10, 0.10])
+    plt.xlim([0.01, 0.2])
     plt.subplots_adjust(hspace = -0.2)
     plt.xlabel(r'$\kappa_0$', fontsize=20)
     plt.tight_layout()
-    plt.savefig('Sigma_Dispersion.pdf')
+    plt.savefig('Sigma_Dispersion2.pdf')
 #  plt.show()
 #
 #  plt.clf()
 # Plot with masses
 ############## A lot of things are probably wrong here, leave it be for now
-else:
+elif plot_masses == True:
     def velocity_dependence_masses(kwargs_lens, M_list, m):
 
         kwargs_lens_result = copy.deepcopy(kwargs_lens)
@@ -235,7 +258,7 @@ else:
         kwargs_lens_kin = copy.deepcopy(kwargs_lens)
         kwargs_lens_kin[2]['kappa_0'] = 0
 
-        vel_disp_0 = kin_api.velocity_dispersion(kwargs_lens_kin, kwargs_lens_light, kwargs_anisotropy, r_eff=r_eff, theta_E=None,)
+        vel_disp_0 = kin_api.velocity_dispersion(kwargs_lens_kin, kwargs_lens_light, kwargs_anisotropy, r_eff=r_eff, theta_E=None)
 
         for M in M_list:
             kappa_ext = 0
