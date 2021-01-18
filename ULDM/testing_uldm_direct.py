@@ -61,8 +61,8 @@ Sigma_c = lens_cosmo.sigma_crit * 10**(-12)
 
 print('D_lens ' , D_Lens, ' Sigma_crit ', Sigma_c)
 
-m_noCosmo = -8.4
-M_noCosmo = -11.66
+m_noCosmo = -9
+M_noCosmo = -11
 
 mphys, Mphys = lens_cosmo.m_noCosmo2m_phys(m_noCosmo, M_noCosmo)
 print("masses mock", mphys, Mphys)
