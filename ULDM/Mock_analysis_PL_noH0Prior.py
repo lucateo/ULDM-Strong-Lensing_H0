@@ -28,62 +28,66 @@ np.random.seed(42)
 z_lens = 0.5
 z_source = 1.5
 from astropy.cosmology import FlatLambdaCDM
-cosmo = FlatLambdaCDM(H0=74, Om0=0.3, Ob0=0.)
+cosmo = FlatLambdaCDM(H0=74.3, Om0=0.3, Ob0=0.)
 
 # data specifics
 sigma_bkg = .05  #  background noise per pixel (Gaussian)
-exp_time = 100.  #  exposure time (arbitrary units, flux per pixel is in units # photons/exp_time unit)
+exp_time = 100.  #  exposure time (arbitrary units, flux per pixel is in units #photons/exp_time unit)
 numPix = 100  #  cutout pixel size
 deltaPix = 0.05  #  pixel size in arcsec (area per pixel = deltaPix**2)
 fwhm = 0.1  # full width half max of PSF (only valid when psf_type='gaussian')
-psf_type = 'GAUSSIAN'  # 'GAUSSIAN', 'PIXEL', 'NONE'; point spread function
+psf_type = 'GAUSSIAN'  # 'GAUSSIAN', 'PIXEL', 'NONE'
 kernel_size = 91
 #kernel_cut = kernel_util.cut_psf(kernel, kernel_size)
 
 # initial input simulation
+
 # generate the coordinate grid and image properties
 kwargs_data = sim_util.data_configure_simple(numPix, deltaPix, exp_time, sigma_bkg)
 data_class = ImageData(**kwargs_data)
 # generate the psf variables
 
-# Point spread function things
 kwargs_psf = {'psf_type': psf_type, 'pixel_size': deltaPix, 'fwhm': fwhm}
 #kwargs_psf = sim_util.psf_configure_simple(psf_type=psf_type, fwhm=fwhm, kernelsize=kernel_size, deltaPix=deltaPix, kernel=kernel)
 psf_class = PSF(**kwargs_psf)
 
-########################### CHOOSING THE LENS MODELLING STUFF FOR THE MOCK IMAGE #################
 # lensing quantities
-gamma1, gamma2 = param_util.shear_polar2cartesian(phi=-0.5, gamma=0.09) # shear quantities
-kwargs_shear = {'gamma1': gamma1, 'gamma2': gamma2}  # shear values
-kwargs_spemd = {'theta_E': 1.57, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
-
-# the lens model is a superposition of an elliptical lens model with external shear
-lens_model_list = ['SPEP', 'SHEAR']
-kwargs_lens = [kwargs_spemd, kwargs_shear]
+kwargs_shear = {'gamma1': 0.05, 'gamma2': -0.02}  # shear values to the source plane
+kwargs_pemd = {'theta_E': 1.66, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': -0.2, 'e2': 0.05}  # parameters of the deflector lens model
+# the lens model is a supperposition of an elliptical lens model with external shear
+lens_model_list = ['PEMD', 'SHEAR']
+kwargs_lens = [kwargs_pemd, kwargs_shear]
 lens_model_class = LensModel(lens_model_list=lens_model_list, z_lens=z_lens, z_source=z_source, cosmo=cosmo)
 
 # choice of source type
 source_type = 'SERSIC'  # 'SERSIC' or 'SHAPELETS'
+
 source_x = 0.
-source_y = 0.1
-# Sersic parameters in the initial simulation for the source
+source_y = 0.25
+
+# Sersic parameters in the initial simulation
 phi_G, q = 0.5, 0.8
 e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
 kwargs_sersic_source = {'amp': 2000, 'R_sersic': 0.1, 'n_sersic': 1, 'e1': e1, 'e2': e2, 'center_x': source_x, 'center_y': source_y}
-#kwargs_else = {'sourcePos_x': source_x, 'sourcePos_y': source_y, 'quasar_amp': 400., 'gamma1_foreground': 0.0, 'gamma2_foreground':-0.0}
 source_model_list = ['SERSIC_ELLIPSE']
 kwargs_source = [kwargs_sersic_source]
 source_model_class = LightModel(light_model_list=source_model_list)
 
 # lens light model
-phi_G, q = 0.9, 0.9
-e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
-kwargs_sersic_lens = {'amp': 4000, 'R_sersic': 0.4, 'n_sersic': 2., 'e1': e1, 'e2': e2, 'center_x': 0.0, 'center_y': 0}
-lens_light_model_list = ['SERSIC_ELLIPSE']
-kwargs_lens_light = [kwargs_sersic_lens]
+# for this exercise we do not include lens light in the imaging model and fix it for the kinematics to be a Hernquist profile with a half light radius parameter
+r_eff = 0.8
+lens_light_model_list = ['HERNQUIST']
 lens_light_model_class = LightModel(light_model_list=lens_light_model_list)
+kwargs_hernquist = {'amp': 4000, 'Rs': r_eff*0.551, 'center_x': 0, 'center_y': 0}
+kwargs_lens_light = [kwargs_hernquist]
+#phi_G, q = 0.9, 0.9
+#e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
+#kwargs_sersic_lens = {'amp': 8000, 'R_sersic': 0.4, 'n_sersic': 2., 'e1': e1, 'e2': e2, 'center_x': 0.0, 'center_y': 0}
+#lens_light_model_list = ['SERSIC_ELLIPSE']
+#kwargs_lens_light = [kwargs_sersic_lens]
+#lens_light_model_class = LightModel(light_model_list=lens_light_model_list)
 
-lensEquationSolver = LensEquationSolver(lens_model_class) # arguments with redshift and lens model
+lensEquationSolver = LensEquationSolver(lens_model_class)
 x_image, y_image = lensEquationSolver.findBrightImage(source_x, source_y, kwargs_lens, numImages=4,
                                                       min_distance=deltaPix, search_window=numPix * deltaPix)
 mag = lens_model_class.magnification(x_image, y_image, kwargs=kwargs_lens)
@@ -94,31 +98,28 @@ point_source_class = PointSource(point_source_type_list=point_source_list, fixed
 
 kwargs_numerics = {'supersampling_factor': 1}
 
-# Class to make the image
 imageModel = ImageModel(data_class, psf_class, lens_model_class, source_model_class,
                                 lens_light_model_class, point_source_class, kwargs_numerics=kwargs_numerics)
 
 # generate image
 image_sim = imageModel.image(kwargs_lens, kwargs_source, kwargs_lens_light, kwargs_ps)
-# Add noise to the image
 poisson = image_util.add_poisson(image_sim, exp_time=exp_time)
 bkg = image_util.add_background(image_sim, sigma_bkd=sigma_bkg)
-# Sum model + noise
 image_sim = image_sim + bkg + poisson
 
 data_class.update_data(image_sim)
 kwargs_data['image_data'] = image_sim
 
-lens_model_list = ['SPEP', 'SHEAR']
+
 kwargs_model = {'lens_model_list': lens_model_list,
                  'lens_light_model_list': lens_light_model_list,
                  'source_light_model_list': source_model_list,
                 'point_source_model_list': point_source_list
                  }
+
 # display the initial simulated image
 #  cmap_string = 'gray'
-#  #  cmap = plt.get_cmap(cmap_string)
-#  cmap = copy.copy(plt.get_cmap(cmap_string))
+#  cmap = plt.get_cmap(cmap_string)
 #  cmap.set_bad(color='k', alpha=1.)
 #  cmap.set_under('k')
 #
@@ -131,9 +132,10 @@ kwargs_model = {'lens_model_list': lens_model_list,
 #  ax.get_xaxis().set_visible(False)
 #  ax.get_yaxis().set_visible(False)
 #  ax.autoscale(False)
+#
 #  plt.show()
 
-########################## EXTRACT VALUES LIKE TIME DELAYS, VELOCITY DISPERSIONS; THESE ARE THE DATA OF A REAL OBSERVATION
+
 from lenstronomy.Analysis.td_cosmography import TDCosmography
 td_cosmo = TDCosmography(z_lens, z_source, kwargs_model, cosmo_fiducial=cosmo)
 
@@ -143,40 +145,41 @@ print("the time delays for the images at position ", kwargs_ps[0]['ra_image'], k
 
 # relative delays (observable). The convention is relative to the first image
 dt_days =  t_days[1:] - t_days[0]
+print(dt_days)
 # and errors can be assigned to the measured relative delays (full covariance matrix not yet implemented)
-dt_sigma = [3, 5, 10]  # Gaussian errors
+dt_sigma = [2, 2, 2]  # Gaussian errors
 # and here a realisation of the measurement with the quoted error bars
 dt_measured = np.random.normal(dt_days, dt_sigma)
 print("the measured relative delays are: ", dt_measured)
 
-### KINEMATICS
+
 # observational conditions of the spectroscopic campagne
 R_slit = 1. # slit length in arcsec
 dR_slit = 1.  # slit width in arcsec
 psf_fwhm = 0.7
 
 kwargs_aperture = {'aperture_type': 'slit', 'length': R_slit, 'width': dR_slit, 'center_ra': 0.05, 'center_dec': 0, 'angle': 0}
-anisotropy_model = 'OM' # Osipkov-Merritt
+anisotropy_model = 'OM' #  'isotropic'
 aperture_type = 'slit'
 
-kwargs_numerics_galkin = {'interpol_grid_num': 1000,  # numerical interpolation, should converge -> infinity
+kwargs_galkin_numerics = {#'sampling_number': 10000, # numerical ray-shooting, should converge -> infinity
+                          'interpol_grid_num': 1000,  # numerical interpolation, should converge -> infinity
                           'log_integration': True,  # log or linear interpolation of surface brightness and mass models
                            'max_integrate': 100, 'min_integrate': 0.001}  # lower/upper bound of numerical integrals
 
 r_ani = 1.
 r_eff = 0.2
-kwargs_anisotropy = {'r_ani': r_ani}
+kwargs_anisotropy = {'r_ani': 1}
 kwargs_seeing = {'psf_type': 'GAUSSIAN', 'fwhm': psf_fwhm}
 
 from lenstronomy.Analysis.kinematics_api import KinematicsAPI
-kin_api = KinematicsAPI(z_lens, z_source, kwargs_model, cosmo=cosmo,
-                        lens_model_kinematics_bool=[True, False], light_model_kinematics_bool=[True],
-                        kwargs_aperture=kwargs_aperture, kwargs_seeing=kwargs_seeing,
-                        anisotropy_model=anisotropy_model, kwargs_numerics_galkin=kwargs_numerics_galkin,
-                        sampling_number=10000,  # numerical ray-shooting, should converge -> infinity
-                        Hernquist_approx=True)
+kin_api = KinematicsAPI(z_lens, z_source, kwargs_model, cosmo=cosmo, lens_model_kinematics_bool=[True, False],
+                 light_model_kinematics_bool=[True], kwargs_aperture=kwargs_aperture, kwargs_seeing=kwargs_seeing,
+                       anisotropy_model=anisotropy_model, Hernquist_approx=True, kwargs_numerics_galkin=kwargs_galkin_numerics,
+                       sampling_number=40000)
 
-vel_disp = kin_api.velocity_dispersion(kwargs_lens, kwargs_lens_light, kwargs_anisotropy, r_eff=r_eff, theta_E=None, kappa_ext=0)
+vel_disp = kin_api.velocity_dispersion(kwargs_lens, kwargs_lens_light, kwargs_anisotropy,
+                                    r_eff=r_eff, theta_E=None, kappa_ext=0)
 print(vel_disp, 'velocity dispersion in km/s')
 
 
@@ -226,12 +229,11 @@ kwargs_lens_light_sigma = []
 kwargs_lower_lens_light = []
 kwargs_upper_lens_light = []
 
-fixed_lens_light.append({})
-kwargs_lens_light_init.append({'R_sersic': 0.5, 'n_sersic': 1, 'e1': 0, 'e2': 0., 'center_x': 0, 'center_y': 0})
-#kwargs_lens_light_init.append(kwargs_sersic_lens)
-kwargs_lens_light_sigma.append({'n_sersic': 0.5, 'R_sersic': 0.1, 'e1': 0.1, 'e2': 0.1, 'center_x': 0.1, 'center_y': 0.1})
-kwargs_lower_lens_light.append({'e1': -0.5, 'e2': -0.5, 'R_sersic': 0.01, 'n_sersic': 0.5, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens_light.append({'e1': 0.5, 'e2': 0.5, 'R_sersic': 10, 'n_sersic': 8, 'center_x': 10, 'center_y': 10})
+fixed_lens_light.append(kwargs_hernquist)
+kwargs_lens_light_init.append(kwargs_hernquist)
+kwargs_lens_light_sigma.append({'Rs': 0.1, 'center_x': 0.1, 'center_y': 0.1})
+kwargs_lower_lens_light.append({'Rs': 0, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens_light.append({'Rs': 10, 'center_x': 10, 'center_y': 10})
 
 lens_light_params = [kwargs_lens_light_init, kwargs_lens_light_sigma, fixed_lens_light, kwargs_lower_lens_light, kwargs_upper_lens_light]
 
@@ -268,7 +270,7 @@ cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower
 
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-lens_model_list_uldm = ['SPEP', 'SHEAR', 'CORED_DENSITY_EXP_MST']
+lens_model_list_uldm = ['PEMD', 'SHEAR', 'CORED_DENSITY_EXP_MST']
 # Just names of the various models used, like ULDM, SERSIC etc.
 kwargs_model_uldm = {'lens_model_list': lens_model_list_uldm,
                  'lens_light_model_list': lens_light_model_list,
@@ -291,7 +293,6 @@ kwargs_constraints = {'joint_source_with_point_source': [[0, 0]],
                       'h0_sampling' : True,
                               }
 
-# Defining parameters for H0 prior, IMPORTANT the double brackets!
 kwargs_likelihood = {'check_bounds': True,
                      'force_no_add_image': False,
                      'source_marg': False,
@@ -314,7 +315,7 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 
-run_sim = True
+run_sim = False
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
@@ -379,7 +380,7 @@ if make_chainPlot == True:
 
 
 if make_cornerPlot == True:
-    sampler_type, samples_mcmc, param_mcmc, dist_mcmc  = chain_list[1]
+    sampler_type, samples_mcmc, param_mcmc, dist_mcmc = chain_list[1]
 
     print("number of non-linear parameters in the MCMC process: ", len(param_mcmc))
     print("parameters in order: ", param_mcmc)
@@ -399,10 +400,10 @@ if make_cornerPlot == True:
                      'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
                     'fill_contours': True, 'alpha': 0.8}
 
-    truths = [kwargs_spemd['gamma'], kwargs_spemd['theta_E'], 0, 0, 74.3]
+    truths = [kwargs_pemd['gamma'], kwargs_pemd['theta_E'], 0, 0, 74.3]
 
-    #labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \log_{10} m $", r"$\log_{10} M $", r"$ h0 $"]
-    labels_new = [r"$\gamma$", r"$ \theta_{\rm E,MSD} $", r"$ \kappa_0  $", r"$ \theta_{\rm c} $", r"$ h0 $"]
+    labels_new_masses = [r"$\gamma$", r"$ \theta_{\rm E} / \lambda $", r"$ \log_{10} m $", r"$\log_{10} M $", r"$ h0 $"]
+    labels_new = [r"$\gamma$", r"$ \theta_{\rm E} /\lambda  $", r"$ \kappa_0  $", r"$ \theta_{\rm c} $", r"$ h0 $"]
     if reprocess_corner == True:
         mcmc_new_list = []
         mcmc_new_list2 = []
@@ -412,20 +413,20 @@ if make_cornerPlot == True:
             h0 = kwargs_result['kwargs_special']['h0']
             gamma = kwargs_result['kwargs_lens'][0]['gamma']
             theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
-            e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
-            phi_G, q = param_util.ellipticity2phi_q(e1, e2)
+            #  e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
+            #  phi_G, q = param_util.ellipticity2phi_q(e1, e2)
             lambda_approx, theta_c = kwargs_result['kwargs_lens'][2]['lambda_approx'], kwargs_result['kwargs_lens'][2]['r_core']
             # Remember that the h0 coming out from this model is actually h0/lambda of the non-MSD subtract model, same for theta_E
-            h0 = h0 * lambda_approx
+            h0_MSD = h0 * lambda_approx
             kappa_0 = 1- lambda_approx
             theta_E_MSD = theta_E * (1 - kappa_0)**(1/(gamma -1))
 
-            cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
+            cosmo_current = FlatLambdaCDM(H0 = h0_MSD, Om0=0.30, Ob0=0.0)
             lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
             m_log10, M_log10, rho0_phys, lambda_soliton = lens_cosmo_current.ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E_MSD)
 
-            mcmc_new_list.append([gamma, theta_E_MSD, kappa_0, theta_c, h0])
-            mcmc_new_list2.append([gamma, theta_E_MSD, m_log10, M_log10, h0])
+            mcmc_new_list.append([gamma, theta_E, kappa_0, theta_c, h0_MSD])
+            mcmc_new_list2.append([gamma, theta_E, m_log10, M_log10, h0_MSD])
 
         file_name = 'mock_corner_PL_MST_noH0Prior.h5'
         try:
@@ -444,8 +445,10 @@ if make_cornerPlot == True:
         #  mcmc_new_list.tolist()
     plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
     plot.savefig('cornerPlot_PL_MST_noH0Prior.pdf')
+    plot_masses = corner.corner(mcmc_new_list2, labels=labels_new_masses, **kwargs_corner)
+    plot_masses.savefig('cornerPlot_PL_MST_noH0Prior_masses.pdf')
 
-make_bound_diagram = True
+make_bound_diagram = False
 if make_bound_diagram == True:
     # clear plot
     plt.clf()
