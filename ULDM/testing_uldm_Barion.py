@@ -26,7 +26,7 @@ lens_cosmo2 = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo2)
 
 # define parameter values of lens models
 kappa_0 = 0.09
-theta_c = 42.10
+theta_c = 5.0
 theta_E = 1.66
 gamma = 1.98
 e1 = 0.1

@@ -24,11 +24,9 @@ from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
 
 import lenstronomy.Util.constants as const
-from lenstronomy.LensModel.Profiles.spep import SPEP
+from lenstronomy.LensModel.Profiles.pemd import PEMD
 
 
-
-## Trying to simulate RXJ1131
 # define lens configuration and cosmology (not for lens modelling)
 z_lens = 0.5
 z_source = 1.5
@@ -64,9 +62,9 @@ psf_class = PSF(**kwargs_psf)
 gamma1, gamma2 = param_util.shear_polar2cartesian(phi=-0.5, gamma=0.09) # shear quantities
 kwargs_shear = {'gamma1': gamma1, 'gamma2': gamma2}  # shear values
 
-theta_E = 1.57
-kappa_0 = 0.09
-theta_c = 3.0
+theta_E = 1.66
+kappa_0 = 0.1
+theta_c = 5.0
 gamma = 1.98
 
 kwargs_spemd = {'theta_E': theta_E, 'gamma': gamma, 'center_x': 0.0, 'center_y': 0.0, 'e1': 0.05, 'e2': 0.05}  # parameters of the deflector lens model
@@ -74,8 +72,8 @@ kwargs_spemd_MST = {'theta_E': theta_E*(1 - kappa_0), 'gamma': 1.98, 'center_x':
 kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': theta_c, 'center_x': 0.0, 'center_y': 0.0}  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
-lens_model_list = ['SPEP', 'SHEAR']
-lens_model_list_uldm = ['SPEP', 'SHEAR', 'ULDM-BAR']
+lens_model_list = ['PEMD', 'SHEAR']
+lens_model_list_uldm = ['PEMD', 'SHEAR', 'ULDM-BAR']
 
 kwargs_lens = [kwargs_spemd, kwargs_shear]
 kwargs_lens_uldm = [kwargs_spemd_MST, kwargs_shear, kwargs_uldm]
@@ -91,7 +89,7 @@ Sigma_c = lens_cosmo.sigma_crit * 10**(-12)
 D_Lens_cmb = lens_cosmo_cmb.dd * 10**6
 Sigma_c_cmb = lens_cosmo_cmb.sigma_crit * 10**(-12)
 
-PL_lens = SPEP()
+PL_lens = PEMD()
 mass3dPL = PL_lens.mass_3d_lens(5, theta_E, gamma) * const.arcsec**2 * Sigma_c * D_Lens**2
 mass3dPL_MSD = PL_lens.mass_3d_lens(5, theta_E*(1 - kappa_0), gamma) * const.arcsec**2 * Sigma_c_cmb * D_Lens_cmb**2
 
@@ -174,12 +172,25 @@ kin_api_uldm = KinematicsAPI(z_lens, z_source, kwargs_model_uldm, cosmo=cosmo_cm
 
 vel_disp_uldm = kin_api_uldm.velocity_dispersion(kwargs_lens_uldm, kwargs_lens_light, kwargs_anisotropy, r_eff=r_eff, theta_E=None, kappa_ext=0)
 
-print(vel_disp, 'velocity dispersion in km/s')
+print(vel_disp, 'velocity dispersion in km/s', vel_disp * np.sqrt((1 - kappa_0)), 'velocity dispersion PL with MSD')
 print(vel_disp_uldm, 'velocity dispersion ULDM in km/s')
+
+kin_api_uldm = KinematicsAPI(z_lens, z_source, kwargs_model_uldm, cosmo=cosmo_cmb,
+                        # Put the appropriate bools here if you change the number of lenses!!
+                        lens_model_kinematics_bool=[False, False, True], light_model_kinematics_bool=[True],
+                        kwargs_aperture=kwargs_aperture, kwargs_seeing=kwargs_seeing,
+                        anisotropy_model=anisotropy_model, kwargs_numerics_galkin=kwargs_numerics_galkin,
+                        sampling_number=10000,  # numerical ray-shooting, should converge -> infinity
+                        Hernquist_approx=True)
+
+vel_disp_uldm_only = kin_api_uldm.velocity_dispersion(kwargs_lens_uldm, kwargs_lens_light, kwargs_anisotropy, r_eff=r_eff, theta_E=None, kappa_ext=0)
+print(vel_disp_uldm_only, 'Only ULDM in km/s')
+print(np.sqrt((vel_disp * np.sqrt(1 - kappa_0))**2 + vel_disp_uldm_only**2 ), 'expected result by summing')
+
 
 
 ### Velocity dispersion dependence with core
-plot_vel = True
+plot_vel = False
 plot_masses = False # put to True if you want the plot with the masses
 if plot_vel == True:
     def velocity_dependence(kwargs_lens, kappa0_list, theta_core):
