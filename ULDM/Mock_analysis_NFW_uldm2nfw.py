@@ -1,3 +1,4 @@
+
 # THINGS TO CHECK: noH0prior flag, chain_list[1] if PSO active and start_from_backup = False
 import numpy as np
 import os
@@ -55,15 +56,17 @@ psf_class = PSF(**kwargs_psf)
 
 ########################### CHOOSING THE LENS MODELLING STUFF FOR THE MOCK IMAGE #################
 # lensing quantities
+# lensing quantities
 kappa_0 = 0.09
-theta_E = 1.66 * (1 - kappa_0)
-kwargs_pemd = {'theta_E': theta_E, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': -0.2, 'e2': 0.05}  # parameters of the deflector lens model
-kwargs_shear = {'gamma1': 0.05, 'gamma2': -0.02}  # shear values to the source plane
+kwargs_nfw = {'alpha_Rs': 1.5*(1-kappa_0), 'Rs': 8, 'center_x': 0.0, 'center_y': 0.0, 'e1': -0.1, 'e2': 0.01}  # parameters of the deflector lens model
+r_eff = 1.0
+kwargs_hernquist = {'sigma0': 2.0*(1-kappa_0), 'Rs': r_eff*0.551, 'center_x': 0.0, 'center_y': 0.0}
+kwargs_shear = {'gamma1': 0.01, 'gamma2': -0.05}  # shear values to the source plane
 kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': 5.0, 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
-lens_model_list = ['PEMD', 'SHEAR', 'CORED_DENSITY_EXP']
-kwargs_lens = [kwargs_pemd, kwargs_shear, kwargs_uldm]
+lens_model_list = ['NFW_ELLIPSE', 'SHEAR', 'HERNQUIST', 'CORED_DENSITY_EXP']
+kwargs_lens = [kwargs_nfw, kwargs_shear, kwargs_hernquist, kwargs_uldm]
 lens_model_class = LensModel(lens_model_list=lens_model_list, z_lens=z_lens, z_source=z_source, cosmo=cosmo)
 
 # choice of source type
@@ -73,7 +76,7 @@ source_type = 'SERSIC'  # 'SERSIC' or 'SHAPELETS'
 # speaking here it wouldn't be necessary but useful when comparing time delays
 # with other parameters
 source_x = 0.
-source_y = 0.25*(1 - kappa_0)
+source_y = 0.15*(1 - kappa_0)
 
 # Sersic parameters in the initial simulation
 phi_G, q = 0.5, 0.8
@@ -88,8 +91,8 @@ source_model_class = LightModel(light_model_list=source_model_list)
 r_eff = 0.8
 lens_light_model_list = ['HERNQUIST']
 lens_light_model_class = LightModel(light_model_list=lens_light_model_list)
-kwargs_hernquist = {'amp': 4000, 'Rs': r_eff*0.551, 'center_x': 0, 'center_y': 0}
-kwargs_lens_light = [kwargs_hernquist]
+kwargs_hernquist_light = {'amp': 4000, 'Rs': r_eff*0.551, 'center_x': 0, 'center_y': 0}
+kwargs_lens_light = [kwargs_hernquist_light]
 #phi_G, q = 0.9, 0.9
 #e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
 #kwargs_sersic_lens = {'amp': 8000, 'R_sersic': 0.4, 'n_sersic': 2., 'e1': e1, 'e2': e2, 'center_x': 0.0, 'center_y': 0}
@@ -128,22 +131,22 @@ kwargs_model = {'lens_model_list': lens_model_list,
                  }
 
 # display the initial simulated image
-#  cmap_string = 'gray'
-#  cmap = plt.get_cmap(cmap_string)
-#  cmap.set_bad(color='k', alpha=1.)
-#  cmap.set_under('k')
-#
-#  v_min = -4
-#  v_max = 2
-#
-#  f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
-#  ax = axes
-#  im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
-#  ax.get_xaxis().set_visible(False)
-#  ax.get_yaxis().set_visible(False)
-#  ax.autoscale(False)
-#
-#  plt.show()
+cmap_string = 'gray'
+cmap = plt.get_cmap(cmap_string)
+cmap.set_bad(color='k', alpha=1.)
+cmap.set_under('k')
+
+v_min = -4
+v_max = 2
+
+f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
+ax = axes
+im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+ax.autoscale(False)
+
+plt.show()
 
 
 ########################## EXTRACT VALUES LIKE TIME DELAYS, VELOCITY DISPERSIONS; THESE ARE THE DATA OF A REAL OBSERVATION
@@ -184,7 +187,7 @@ kwargs_anisotropy = {'r_ani': 1}
 kwargs_seeing = {'psf_type': 'GAUSSIAN', 'fwhm': psf_fwhm}
 
 from lenstronomy.Analysis.kinematics_api import KinematicsAPI
-kin_api = KinematicsAPI(z_lens, z_source, kwargs_model, cosmo=cosmo, lens_model_kinematics_bool=[True, False, True],
+kin_api = KinematicsAPI(z_lens, z_source, kwargs_model, cosmo=cosmo, lens_model_kinematics_bool=[True, False, True, True],
                  light_model_kinematics_bool=[True], kwargs_aperture=kwargs_aperture, kwargs_seeing=kwargs_seeing,
                        anisotropy_model=anisotropy_model, Hernquist_approx=True, kwargs_numerics_galkin=kwargs_galkin_numerics,
                        sampling_number=40000)
@@ -204,28 +207,27 @@ kwargs_lens_sigma = []
 kwargs_lower_lens = []
 kwargs_upper_lens = []
 
-## SPEP model
+## NFW
 fixed_lens.append({})
-kwargs_lens_init.append({'theta_E': 1.6, 'gamma': 2, 'center_x': 0.0, 'center_y': 0, 'e1': 0, 'e2': 0.})
-kwargs_lens_sigma.append({'theta_E': .2, 'e1': 0.1, 'e2': 0.1, 'gamma': 0.1, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'theta_E': 0.01, 'e1': -0.5, 'e2': -0.5, 'gamma': 1.5, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'theta_E': 10, 'e1': 0.5, 'e2': 0.5, 'gamma': 2.5, 'center_x': 10, 'center_y': 10})
+kwargs_lens_init.append(copy.deepcopy(kwargs_nfw))
+kwargs_lens_sigma.append({'alpha_Rs': 0.5, 'Rs': 2, 'center_x': 0.01, 'center_y': 0.01, 'e1': 0.2, 'e2': 0.2})
+kwargs_lower_lens.append({'alpha_Rs': 0., 'Rs': 2, 'center_x': -10, 'center_y': -10, 'e1': -0.5, 'e2': -0.5})
+kwargs_upper_lens.append({'alpha_Rs': 10., 'Rs': 20, 'center_x': 10, 'center_y': 10, 'e1': 0.5, 'e2': 0.5})
 
-## SHEAR model
+## SHEAR
 fixed_lens.append({'ra_0': 0, 'dec_0': 0})
-kwargs_lens_init.append({'gamma1': 0, 'gamma2': 0})
-#kwargs_lens_init.append(kwargs_shear)
+#kwargs_lens_init.append({'gamma1': 0., 'gamma2': 0.})
+kwargs_lens_init.append(copy.deepcopy(kwargs_shear))
 kwargs_lens_sigma.append({'gamma1': 0.1, 'gamma2': 0.1})
-kwargs_lower_lens.append({'gamma1': -0.5, 'gamma2': -0.5})
-kwargs_upper_lens.append({'gamma1': 0.5, 'gamma2': 0.5})
+kwargs_lower_lens.append({'gamma1': -0.3, 'gamma2': -0.3})
+kwargs_upper_lens.append({'gamma1': 0.3, 'gamma2': 0.3})
 
-## ULDM model
-## You have to put this, this means that the fixed parameters in this case are zero
+## Hernquist
 fixed_lens.append({})
-kwargs_lens_init.append({'kappa_0': 0.10, 'theta_c': 7, 'center_x': 0.0, 'center_y': 0})
-kwargs_lens_sigma.append({'kappa_0': 0.05, 'theta_c': 5, 'center_x': 0.01, 'center_y': 0.01})
-kwargs_lower_lens.append({'kappa_0': 0, 'theta_c': 0.1, 'center_x': -10, 'center_y': -10})
-kwargs_upper_lens.append({'kappa_0': 0.5, 'theta_c': 10, 'center_x': 10.0, 'center_y': 10.0})
+kwargs_lens_init.append(copy.deepcopy(kwargs_hernquist))
+kwargs_lens_sigma.append({'sigma0': 0.2, 'Rs': 0.1, 'center_x': 0.1, 'center_y': 0.1})
+kwargs_lower_lens.append({'sigma0': 0., 'Rs': 0, 'center_x': -10, 'center_y': -10})
+kwargs_upper_lens.append({'sigma0': 20, 'Rs': 10, 'center_x': 10, 'center_y': 10})
 
 lens_params = [kwargs_lens_init, kwargs_lens_sigma, fixed_lens, kwargs_lower_lens, kwargs_upper_lens]
 
@@ -268,17 +270,18 @@ kwargs_ps_sigma = [{'ra_image': 0.01 * np.ones(len(x_image)), 'dec_image': 0.01 
 kwargs_lower_ps = [{'ra_image': -10 * np.ones(len(x_image)), 'dec_image': -10 * np.ones(len(y_image))}]
 kwargs_upper_ps = [{'ra_image': 10* np.ones(len(x_image)), 'dec_image': 10 * np.ones(len(y_image))}]
 
+########################################CHANGE WITH H0 PRIOR ###################################################
 fixed_cosmo = {}
 kwargs_cosmo_init = {'D_dt': 4000}
-kwargs_cosmo_sigma = {'D_dt': 100}
-kwargs_lower_cosmo = {'D_dt': 2000}
-kwargs_upper_cosmo = {'D_dt': 6000}
-
+kwargs_cosmo_sigma = {'D_dt': 1000}
+kwargs_lower_cosmo = {'D_dt': 1000}
+kwargs_upper_cosmo = {'D_dt': 10000}
+############################################################################################################
 cosmo_params = [kwargs_cosmo_init, kwargs_cosmo_sigma, fixed_cosmo, kwargs_lower_cosmo, kwargs_upper_cosmo]
 
 ps_params = [kwargs_ps_init, kwargs_ps_sigma, fixed_ps, kwargs_lower_ps, kwargs_upper_ps]
 
-lens_model_list_uldm = ['PEMD', 'SHEAR', 'CORED_DENSITY_EXP']
+lens_model_list_uldm = ['NFW_ELLIPSE', 'SHEAR', 'HERNQUIST']
 # Just names of the various models used, like ULDM, SERSIC etc.
 kwargs_model_uldm = {'lens_model_list': lens_model_list_uldm,
                  'lens_light_model_list': lens_light_model_list,
@@ -339,9 +342,9 @@ kwargs_likelihood = {'check_bounds': True,
                      'source_position_sigma': 0.001,
                      'time_delay_likelihood': True,
 ##############################################CHANGE FOR H0 PRIOR CHANGE #####################################################
-                     'custom_logL_addition': logL_addition
+                     #  'custom_logL_addition': logL_addition
                              }
-# kwargs_data contains the image arraay
+# kwargs_data contains the image array
 image_band = [kwargs_data, kwargs_psf, kwargs_numerics]
 multi_band_list = [image_band]
 kwargs_data_joint = {'multi_band_list': multi_band_list, 'multi_band_type': 'multi-linear',
@@ -356,17 +359,17 @@ mpi = False  # MPI possible, but not supported through that notebook.
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 ##############################################CHANGE FOR H0 PRIOR CHANGE #####################################################
 #  noH0priorFlag = "_noH0Prior_"
-noH0priorFlag = "_Try_"
+noH0priorFlag = "_"
 
-backup_filename = 'mock_results_PL'+noH0priorFlag+'uldm2uldm.h5'
-start_from_backup= True
+backup_filename = 'mock_results_NFW'+noH0priorFlag+'uldm2nfw.h5'
+start_from_backup= False
 
-run_sim = False
+run_sim = True
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
-    # Do before the PSO to reach a good starting value for MCMC
-    fitting_kwargs_list = [#['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
+    # Do before the PSO to reach a good starting value for MCMC ###################### CHANGE is start_from_backup = True
+    fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
             ['MCMC', {'n_burn': 150, 'n_run': 100, 'walkerRatio': 10, 'sigma_scale': .2,
                 'backup_filename': backup_filename, 'start_from_backup': start_from_backup}]
     ]
@@ -375,12 +378,12 @@ if run_sim == True:
     chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
     kwargs_result = fitting_seq.best_fit()
 
-    file_name = 'mock_results_uldm_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_NFW'+noH0priorFlag+'uldm2nfw.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(kwargs_result, filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_chain_NFW'+noH0priorFlag+'uldm2nfw.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(chain_list, filedata)
     filedata.close()
@@ -389,12 +392,12 @@ if run_sim == True:
     print(end_time - start_time, 'total time needed for computation')
     print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
 else:
-    file_name = 'mock_results_uldm_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_NFW'+noH0priorFlag+'uldm2nfw.pkl'
     filedata = open(file_name, 'rb')
     kwargs_result = pickle.load(filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_chain_NFW'+noH0priorFlag+'uldm2nfw.pkl'
     filedata = open(file_name, 'rb')
     chain_list = pickle.load(filedata)
     filedata.close()
@@ -424,65 +427,13 @@ if make_chainPlot == True:
     chain_plot.plt.show()
     chain_plot.plt.savefig('chainPlot_PL.png')
 
-################################## CONVERSION FUNCTIONS ########################################
-def ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E, h0, z_lens, z_source):
-    """
-    converts angular units entering ULDM-BAR class in physical ULDM mass which are
-    - m_log10: it is \log_10 m , m in eV
-    - M_noCosmo_log10: it is \log_10 ( M ), M in M_sun
-    :param kappa_0: central convergence of soliton
-    :param theta_c: core radius (in arcsec)
-    :param theta_E: Einstein radius of power law model (in arcsec)
-    :return: mass_particle (log10, eV), Mass_soliton (log10, M_sun), rho0_physical (M_sun/pc^3), lambda_soliton
-    """
-    cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
-    lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
-    D_Lens = lens_cosmo_current.dd * 10**6 # in pc
-    Sigma_c = lens_cosmo_current.sigma_crit * 10**(-12) # in M_sun/pc^2
-    rhotilde = kappa_0 / (np.sqrt(np.pi) * theta_c) # in 1/arcsec
-    rho_phys = rhotilde * Sigma_c / (D_Lens * const.arcsec)
-    A_factor = 4.64096 * 10**(-19) * D_Lens * Sigma_c * theta_E
-    B_factor = 1.71468 * 10**(17) / (theta_c**2 * rhotilde * Sigma_c * D_Lens)
-    lambda_factor = np.sqrt( (0.18 + np.sqrt(0.034 + 1.8 * A_factor * B_factor))/ (2*B_factor) )
-    mass = 2.25221 * 10**(-27) * np.sqrt(Sigma_c * rhotilde /D_Lens)/ lambda_factor**2
-    a_fit = 0.18 + 0.45 * A_factor/lambda_factor**2
-    Mass_sol = 2.09294 * 10**(-11) * lambda_factor / mass  * a_fit**(-1.5)
-    mass = np.log10(mass)
-    Mass_sol = np.log10(Mass_sol)
-    return mass, Mass_sol, rho_phys, lambda_factor
-
-def ULDM_BAR_phys2angles(m_log10, M_log10, theta_E, h0, z_lens, z_source):
-    """
-    converts physical ULDM mass in angles entering ULDM-BAR class
-    :param m_log10: it is \log_10 m , m in eV
-    :param M_noCosmo_log10: it is \log_10 ( M ), M in M_sun
-    :param theta_E: Einstein radius of power law model (in arcsec)
-    :return: kappa_0, the central convergence, theta_c, the core radius (in arcseconds), and lambda_soliton
-    """
-    cosmo_current = FlatLambdaCDM(H0 = h0, Om0=0.30, Ob0=0.0)
-    lens_cosmo_current = LensCosmo(z_lens = z_lens, z_source = z_source, cosmo = cosmo_current)
-    m = 10**m_log10
-    M = 10**M_log10
-    D_Lens = lens_cosmo_current.dd * 10**6 # in pc
-    Sigma_c = lens_cosmo_current.sigma_crit * 10**(-12) # in M_sun/pc^2
-    A_factor = 4.64096 * 10**(-19) * D_Lens * Sigma_c * theta_E
-    A_tilde = 7.48536 * 10**9 * m * M
-    lambda_factor = 1.2 * A_tilde**(1/4) * A_factor**(3/8) * np.sqrt(1 + 0.3 * ( (A_tilde**2) /A_factor)**(1/4)
-            + 0.17 * (A_tilde**2 / A_factor)**(3/4) )
-    ## Old method by solving with nsolve the equation
-    #  x = Symbol('x')
-    #  eq1 = (0.18 + 0.45*A_factor/x**2)**3 * A_tilde**2 * 128/np.pi  - x**2
-    #  lambda_factor = nsolve(eq1, x, 0.001)
-    #  lambda_factor = float(lambda_factor)
-    a_fit = 0.18 + 0.45 * A_factor/lambda_factor**2
-    theta_c = 1.31891 * 10**(-18) / (lambda_factor * m * D_Lens * np.sqrt(2*a_fit))
-    kappa_0 = 1.97143 * 10**53 * np.sqrt(np.pi) * theta_c * m**2 * lambda_factor**4 * D_Lens / Sigma_c
-    return kappa_0, theta_c, lambda_factor
-
-###################################################################################################
+if start_from_backup == True:
+    chain_list_index = 0
+else:
+    chain_list_index = 1
 
 if make_cornerPlot == True:
-    sampler_type, samples_mcmc, param_mcmc, dist_mcmc  = chain_list[0]
+    sampler_type, samples_mcmc, param_mcmc, dist_mcmc  = chain_list[chain_list_index]
 
     print("number of non-linear parameters in the MCMC process: ", len(param_mcmc))
     print("parameters in order: ", param_mcmc)
@@ -501,17 +452,15 @@ if make_cornerPlot == True:
     # This to make a range for the cornerplot, single numbers are to make a fraction
     # of the whole range, cutting bounds (1 means don't cut anything)
     #  range_ = [1,(1.64,1.70), 1, 1, 1]
-    range_ = [1, 1, 1, 1, 1]
+    range_ = [1, 1, 1, 1]
 
     kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True,
                      'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
                      'fill_contours': True, 'alpha': 0.8, 'range': range_}
 
     mcmc_new_list = []
-    mcmc_new_list2 = []
 
-    labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ h0 $"]
-    labels_new_masses = [r"$\gamma$", r"$ \theta_{\rm E} / \lambda $", r"$ \log_{10} m $ [eV]", r"$ \log_{10} M  [M_\odot]$", r"$ h0 $"]
+    labels_new = [r"$ r_{ 200 } $", r"$\rho_{\rm 0, Rs}$", r"$\Sigma_{\rm star}$", r"$ h0 $"]
 
     if reprocess_corner == True:
         for i in range(len(samples_mcmc)):
@@ -519,42 +468,33 @@ if make_cornerPlot == True:
             kwargs_result = param.args2kwargs(samples_mcmc[i])
             ddt_mcmc = kwargs_result['kwargs_special']['D_dt']
             h0 = 70 * Ddt_reference / ddt_mcmc
-            gamma = kwargs_result['kwargs_lens'][0]['gamma']
-            theta_E_MSD = kwargs_result['kwargs_lens'][0]['theta_E']
-            #  e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
-            #  phi_G, q = param_util.ellipticity2phi_q(e1, e2)
-            kappa_0, theta_c = kwargs_result['kwargs_lens'][2]['kappa_0'], kwargs_result['kwargs_lens'][2]['theta_c']
 
-            # Convergence at the power law Einstein angle
-            kappa_E = kappa_0 * np.exp(-(1.66/theta_c)**2)
-            theta_E = theta_E_MSD / (1 - kappa_E)
+            alpha_Rs = kwargs_result['kwargs_lens'][0]['alpha_Rs']
+            Rs = kwargs_result['kwargs_lens'][0]['Rs']
+            cosmo_current = FlatLambdaCDM(H0=h0, Om0=0.3, Ob0=0.0)
+            lens_cosmo_current = LensCosmo(z_lens=z_lens, z_source=z_source, cosmo=cosmo_current)
+            rho0_NFW, Rs_NFW, c_NFW, r200_NFW, M200_NFW = lens_cosmo.nfw_angle2physical(Rs_angle=Rs, alpha_Rs=alpha_Rs)
 
-            m_log10, M_log10, rho0_phys, lambda_soliton = ULDM_BAR_angles2phys(kappa_0, theta_c, theta_E_MSD, h0, z_lens, z_source)
-            mcmc_new_list.append([gamma, theta_E, kappa_0, theta_c, h0])
-            mcmc_new_list2.append([gamma, theta_E, m_log10, M_log10, h0])
+            Rs = Rs * c_NFW # r200 in arcseconds
 
-        file_name = 'mock_corner_PL'+noH0priorFlag+'uldm2uldm.h5'
+            sigma0 = kwargs_result['kwargs_lens'][2]['sigma0']
+            Rs_Hernq = kwargs_result['kwargs_lens'][2]['Rs']
+
+            mcmc_new_list.append([Rs, rho0_NFW, sigma0, h0])
+
+        file_name = 'mock_corner_NFW'+noH0priorFlag+'uldm2nfw.h5'
         try:
             h5file = h5py.File(file_name, 'w')
             h5file.create_dataset("dataset_mock", data=mcmc_new_list)
-            h5file.create_dataset("dataset_mock_masses", data=mcmc_new_list2)
             h5file.close()
         except:
             print("The h5py stuff went wrong...")
     else:
-        file_name = 'mock_corner_PL'+noH0priorFlag+'uldm2uldm.h5'
+        file_name = 'mock_corner_NFW'+noH0priorFlag+'uldm2nfw.h5'
         h5file = h5py.File(file_name, 'r')
         mcmc_new_list = h5file['dataset_mock'][:]
-        mcmc_new_list2 = h5file['dataset_mock_masses'][:]
         h5file.close()
 
     plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
-    file_name = 'cornerPlot_PL'+noH0priorFlag+'uldm2uldm.pdf'
+    file_name = 'cornerPlot_NFW'+noH0priorFlag+'uldm2nfw.pdf'
     plot.savefig(file_name)
-
-    file_name = 'cornerPlot_PL'+noH0priorFlag+'masses_uldm2uldm.pdf'
-    plot = corner.corner(mcmc_new_list2, labels=labels_new_masses, **kwargs_corner)
-    plot.savefig(file_name)
-
-
-

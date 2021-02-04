@@ -24,7 +24,7 @@ import lenstronomy.Util.constants as const
 from lenstronomy.Util import kernel_util
 from lenstronomy.Data.imaging_data import ImageData
 from lenstronomy.Data.psf import PSF
-
+from scipy.special import gamma as gamma_func
 np.random.seed(42)
 
 # define lens configuration and cosmology (not for lens modelling)
@@ -53,16 +53,48 @@ kwargs_psf = {'psf_type': psf_type, 'pixel_size': deltaPix, 'fwhm': fwhm}
 #kwargs_psf = sim_util.psf_configure_simple(psf_type=psf_type, fwhm=fwhm, kernelsize=kernel_size, deltaPix=deltaPix, kernel=kernel)
 psf_class = PSF(**kwargs_psf)
 
+#################################### MASS FUNCTIONS ##########################
+def phys2ModelParam(m_log10, lambda_factor, theta_E):
+    eV2Joule = 1.6021*10**(-19)
+    hbar = 6.62 * 10**(-34) / (2* np.pi)
+    pc2meter = 3.086 * 10**(16)
+    clight = 3*10**8
+    G_const = 6.67 * 10**(-11)
+    m_sun = 1.989 * 10**(30)
+    m = 10**m_log10 * eV2Joule # in Joule
+    lens_cosmo = LensCosmo(z_lens, z_source, cosmo)
+    D_Lens = lens_cosmo.dd * 10**6 * pc2meter # in meter
+    Sigma_c = lens_cosmo.sigma_crit * 10**(-12) * m_sun / pc2meter**2 # in kg/m^2
+
+    A_Factor = 2 * G_const / clight**2 * Sigma_c * D_Lens * theta_E * const.arcsec
+    z_fit = A_Factor / lambda_factor**2
+    a_fit = 0.23 * np.sqrt(1 + 7.5 * z_fit * np.tanh( 1.5 * z_fit**(0.24)) )
+    b_fit = 1.69 + 2.23/(1 + 2.2 * z_fit)**(2.47)
+    slope = 2*b_fit
+    core_half_factor = np.sqrt(0.5**(-1/slope) -1)
+    theta_c = core_half_factor * clight * hbar / (lambda_factor * a_fit * m * D_Lens * const.arcsec )
+    kappa_0 = lambda_factor**3 * m * np.sqrt(np.pi) * gamma_func(slope - 0.5)
+    kappa_0 = kappa_0 * clight  /(4 * np.pi * Sigma_c * G_const * hbar * a_fit * gamma_func(slope) )
+    M_sol = lambda_factor * clight**3 * hbar * np.sqrt(np.pi) * gamma_func(slope - 1.5)
+    M_sol = M_sol / (G_const * m * a_fit**3 * 4 * gamma_func(slope) ) # in kg
+    M_log10 = np.log10( M_sol/m_sun)
+    return kappa_0, theta_c, slope, M_log10
+
+##############################################################################
+
+
+
 ########################### CHOOSING THE LENS MODELLING STUFF FOR THE MOCK IMAGE #################
 # lensing quantities
 kappa_0 = 0.09
 theta_E = 1.66 * (1 - kappa_0)
 kwargs_pemd = {'theta_E': theta_E, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': -0.2, 'e2': 0.05}  # parameters of the deflector lens model
 kwargs_shear = {'gamma1': 0.05, 'gamma2': -0.02}  # shear values to the source plane
-kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': 5.0, 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
+################### CHANGE PARAMETERS FOR THE MASS YOU LIKE MOST
+kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': 5.0, 'slope': 8; 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
-lens_model_list = ['PEMD', 'SHEAR', 'CORED_DENSITY_EXP']
+lens_model_list = ['PEMD', 'SHEAR', 'ULDM']
 kwargs_lens = [kwargs_pemd, kwargs_shear, kwargs_uldm]
 lens_model_class = LensModel(lens_model_list=lens_model_list, z_lens=z_lens, z_source=z_source, cosmo=cosmo)
 
@@ -128,22 +160,22 @@ kwargs_model = {'lens_model_list': lens_model_list,
                  }
 
 # display the initial simulated image
-#  cmap_string = 'gray'
-#  cmap = plt.get_cmap(cmap_string)
-#  cmap.set_bad(color='k', alpha=1.)
-#  cmap.set_under('k')
-#
-#  v_min = -4
-#  v_max = 2
-#
-#  f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
-#  ax = axes
-#  im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
-#  ax.get_xaxis().set_visible(False)
-#  ax.get_yaxis().set_visible(False)
-#  ax.autoscale(False)
-#
-#  plt.show()
+cmap_string = 'gray'
+cmap = plt.get_cmap(cmap_string)
+cmap.set_bad(color='k', alpha=1.)
+cmap.set_under('k')
+
+v_min = -4
+v_max = 2
+
+f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
+ax = axes
+im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
+ax.get_xaxis().set_visible(False)
+ax.get_yaxis().set_visible(False)
+ax.autoscale(False)
+
+plt.show()
 
 
 ########################## EXTRACT VALUES LIKE TIME DELAYS, VELOCITY DISPERSIONS; THESE ARE THE DATA OF A REAL OBSERVATION
@@ -356,9 +388,9 @@ mpi = False  # MPI possible, but not supported through that notebook.
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 ##############################################CHANGE FOR H0 PRIOR CHANGE #####################################################
 #  noH0priorFlag = "_noH0Prior_"
-noH0priorFlag = "_Try_"
+noH0priorFlag = "_"
 
-backup_filename = 'mock_results_PL'+noH0priorFlag+'uldm2uldm.h5'
+backup_filename = 'mock_results_PLFraction'+noH0priorFlag+'uldm2uldm.h5'
 start_from_backup= True
 
 run_sim = False
@@ -375,12 +407,12 @@ if run_sim == True:
     chain_list = fitting_seq.fit_sequence(fitting_kwargs_list)
     kwargs_result = fitting_seq.best_fit()
 
-    file_name = 'mock_results_uldm_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_PLFraction'+noH0priorFlag+'uldm2uldm.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(kwargs_result, filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_chain_PLFraction'+noH0priorFlag+'uldm2uldm.pkl'
     filedata = open(file_name, 'wb')
     pickle.dump(chain_list, filedata)
     filedata.close()
@@ -389,12 +421,12 @@ if run_sim == True:
     print(end_time - start_time, 'total time needed for computation')
     print('============ CONGRATULATION, YOUR JOB WAS SUCCESSFUL ================ ')
 else:
-    file_name = 'mock_results_uldm_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_PLFraction'+noH0priorFlag+'uldm2uldm.pkl'
     filedata = open(file_name, 'rb')
     kwargs_result = pickle.load(filedata)
     filedata.close()
 
-    file_name = 'mock_results_uldm_chain_PL'+noH0priorFlag+'uldm2uldm.pkl'
+    file_name = 'mock_results_uldm_chain_PLFraction'+noH0priorFlag+'uldm2uldm.pkl'
     filedata = open(file_name, 'rb')
     chain_list = pickle.load(filedata)
     filedata.close()
@@ -533,7 +565,7 @@ if make_cornerPlot == True:
             mcmc_new_list.append([gamma, theta_E, kappa_0, theta_c, h0])
             mcmc_new_list2.append([gamma, theta_E, m_log10, M_log10, h0])
 
-        file_name = 'mock_corner_PL'+noH0priorFlag+'uldm2uldm.h5'
+        file_name = 'mock_corner_PLFraction'+noH0priorFlag+'uldm2uldm.h5'
         try:
             h5file = h5py.File(file_name, 'w')
             h5file.create_dataset("dataset_mock", data=mcmc_new_list)
@@ -542,19 +574,18 @@ if make_cornerPlot == True:
         except:
             print("The h5py stuff went wrong...")
     else:
-        file_name = 'mock_corner_PL'+noH0priorFlag+'uldm2uldm.h5'
+        file_name = 'mock_corner_PLFraction'+noH0priorFlag+'uldm2uldm.h5'
         h5file = h5py.File(file_name, 'r')
         mcmc_new_list = h5file['dataset_mock'][:]
         mcmc_new_list2 = h5file['dataset_mock_masses'][:]
         h5file.close()
 
     plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
-    file_name = 'cornerPlot_PL'+noH0priorFlag+'uldm2uldm.pdf'
+    file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'uldm2uldm.pdf'
     plot.savefig(file_name)
 
-    file_name = 'cornerPlot_PL'+noH0priorFlag+'masses_uldm2uldm.pdf'
+    file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'masses_uldm2uldm.pdf'
     plot = corner.corner(mcmc_new_list2, labels=labels_new_masses, **kwargs_corner)
     plot.savefig(file_name)
-
 
 
