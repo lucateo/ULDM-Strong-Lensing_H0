@@ -53,47 +53,15 @@ kwargs_psf = {'psf_type': psf_type, 'pixel_size': deltaPix, 'fwhm': fwhm}
 #kwargs_psf = sim_util.psf_configure_simple(psf_type=psf_type, fwhm=fwhm, kernelsize=kernel_size, deltaPix=deltaPix, kernel=kernel)
 psf_class = PSF(**kwargs_psf)
 
-
-#################################### MASS FUNCTIONS ##########################
-def phys2ModelParam(m_log10, lambda_factor, theta_E):
-    eV2Joule = 1.6021*10**(-19)
-    hbar = 6.62 * 10**(-34) / (2* np.pi)
-    pc2meter = 3.086 * 10**(16)
-    clight = 3*10**8
-    G_const = 6.67 * 10**(-11)
-    m_sun = 1.989 * 10**(30)
-    m = 10**m_log10 * eV2Joule # in Joule
-    lens_cosmo = LensCosmo(z_lens, z_source, cosmo)
-    D_Lens = lens_cosmo.dd * 10**6 * pc2meter # in meter
-    Sigma_c = lens_cosmo.sigma_crit * 10**(-12) * m_sun / pc2meter**2 # in kg/m^2
-
-    A_Factor = 2 * G_const / clight**2 * Sigma_c * D_Lens * theta_E * const.arcsec
-    z_fit = A_Factor / lambda_factor**2
-    a_fit = 0.23 * np.sqrt(1 + 7.5 * z_fit * np.tanh( 1.5 * z_fit**(0.24)) )
-    b_fit = 1.69 + 2.23/(1 + 2.2 * z_fit)**(2.47)
-    slope = 2*b_fit
-    core_half_factor = np.sqrt(0.5**(-1/slope) -1)
-    theta_c = core_half_factor * clight * hbar / (lambda_factor * a_fit * m * D_Lens * const.arcsec )
-    kappa_0 = lambda_factor**3 * m * np.sqrt(np.pi) * gamma_func(slope - 0.5)
-    kappa_0 = kappa_0 * clight  /(4 * np.pi * Sigma_c * G_const * hbar * a_fit * gamma_func(slope) )
-    M_sol = lambda_factor * clight**3 * hbar * np.sqrt(np.pi) * gamma_func(slope - 1.5)
-    M_sol = M_sol / (G_const * m * a_fit**3 * 4 * gamma_func(slope) ) # in kg
-    M_log10 = np.log10( M_sol/m_sun)
-    return kappa_0, theta_c, slope, M_log10
-
-##############################################################################
-
-
-
-
 ########################### CHOOSING THE LENS MODELLING STUFF FOR THE MOCK IMAGE #################
 # lensing quantities
 kappa_0 = 0.09
 theta_E = 1.66 * (1 - kappa_0)
+slope = 3.8
 kwargs_pemd = {'theta_E': theta_E, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': -0.2, 'e2': 0.05}  # parameters of the deflector lens model
 kwargs_shear = {'gamma1': 0.05, 'gamma2': -0.02}  # shear values to the source plane
 ################### CHANGE PARAMETERS FOR THE MASS YOU LIKE MOST
-kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': 5.0, 'slope': 8; 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
+kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': 5.0, 'slope': slope, 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
 lens_model_list = ['PEMD', 'SHEAR', 'ULDM']
@@ -162,22 +130,22 @@ kwargs_model = {'lens_model_list': lens_model_list,
                  }
 
 # display the initial simulated image
-cmap_string = 'gray'
-cmap = plt.get_cmap(cmap_string)
-cmap.set_bad(color='k', alpha=1.)
-cmap.set_under('k')
-
-v_min = -4
-v_max = 2
-
-f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
-ax = axes
-im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)
-ax.autoscale(False)
-
-plt.show()
+#  cmap_string = 'gray'
+#  cmap = plt.get_cmap(cmap_string)
+#  cmap.set_bad(color='k', alpha=1.)
+#  cmap.set_under('k')
+#
+#  v_min = -4
+#  v_max = 2
+#
+#  f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
+#  ax = axes
+#  im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
+#  ax.get_xaxis().set_visible(False)
+#  ax.get_yaxis().set_visible(False)
+#  ax.autoscale(False)
+#
+#  plt.show()
 
 
 ########################## EXTRACT VALUES LIKE TIME DELAYS, VELOCITY DISPERSIONS; THESE ARE THE DATA OF A REAL OBSERVATION
@@ -339,8 +307,6 @@ kwargs_likelihood = {'check_bounds': True,
                      'source_position_tolerance': 0.001,
                      'source_position_sigma': 0.001,
                      'time_delay_likelihood': True,
-##############################################CHANGE FOR H0 PRIOR CHANGE #####################################################
-                     #  'custom_logL_addition': logL_addition
                              }
 # kwargs_data contains the image arraay
 image_band = [kwargs_data, kwargs_psf, kwargs_numerics]
@@ -360,15 +326,15 @@ from lenstronomy.Workflow.fitting_sequence import FittingSequence
 noH0priorFlag = "_"
 
 backup_filename = 'mock_results_PLFraction'+noH0priorFlag+'uldm2pl.h5'
-start_from_backup= False
+start_from_backup= True
 
 run_sim = False
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
-    fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 150, 'n_run': 100, 'walkerRatio': 10, 'sigma_scale': .2,
+    fitting_kwargs_list = [#['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
+            ['MCMC', {'n_burn': 1200, 'n_run': 2500, 'walkerRatio': 10, 'sigma_scale': .2,
                 'backup_filename': backup_filename, 'start_from_backup': start_from_backup}]
     ]
 
@@ -405,19 +371,19 @@ print('Final parameters given by MCMC: ', kwargs_result)
 from lenstronomy.Plots import chain_plot
 from lenstronomy.Plots.model_plot import ModelPlot
 
-make_figures = False
+make_figures = True
 if make_figures == True:
     modelPlot = ModelPlot(multi_band_list, kwargs_model_uldm, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
-    f.savefig('Plot_main_PL.png')
+    f.savefig('Plot_main_PLFraction.pdf')
     f, axes = modelPlot.plot_separate()
-    f.savefig('Plot_separate_PL.png')
+    f.savefig('Plot_separate_PLFraction.pdf')
     f, axes = modelPlot.plot_subtract_from_data_all()
-    f.savefig('Plot_subtract_PL.png')
+    f.savefig('Plot_subtract_PLFraction.pdf')
 
 make_chainPlot = False
-make_cornerPlot = True
-reprocess_corner = True
+make_cornerPlot = False
+reprocess_corner = False
 if make_chainPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
@@ -426,8 +392,13 @@ if make_chainPlot == True:
     chain_plot.plt.savefig('chainPlot_PL.png')
 
 
+if start_from_backup == True:
+    chain_list_index = 0
+else:
+    chain_list_index = 1
+
 if make_cornerPlot == True:
-    sampler_type, samples_mcmc, param_mcmc, dist_mcmc  = chain_list[0]
+    sampler_type, samples_mcmc, param_mcmc, dist_mcmc  = chain_list[chain_list_index]
 
     print("number of non-linear parameters in the MCMC process: ", len(param_mcmc))
     print("parameters in order: ", param_mcmc)
@@ -463,6 +434,7 @@ if make_cornerPlot == True:
             ddt_mcmc = kwargs_result['kwargs_special']['D_dt']
             h0 = 70 * Ddt_reference / ddt_mcmc
             gamma = kwargs_result['kwargs_lens'][0]['gamma']
+            theta_E = kwargs_result['kwargs_lens'][0]['theta_E']
             #  e1, e2 = kwargs_result['kwargs_lens'][0]['e1'], kwargs_result['kwargs_lens'][0]['e2']
             #  phi_G, q = param_util.ellipticity2phi_q(e1, e2)
 

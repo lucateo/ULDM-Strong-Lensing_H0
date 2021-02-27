@@ -130,22 +130,22 @@ kwargs_model = {'lens_model_list': lens_model_list,
                  }
 
 # display the initial simulated image
-cmap_string = 'gray'
-cmap = plt.get_cmap(cmap_string)
-cmap.set_bad(color='k', alpha=1.)
-cmap.set_under('k')
-
-v_min = -4
-v_max = 2
-
-f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
-ax = axes
-im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
-ax.get_xaxis().set_visible(False)
-ax.get_yaxis().set_visible(False)
-ax.autoscale(False)
-
-plt.show()
+#  cmap_string = 'gray'
+#  cmap = plt.get_cmap(cmap_string)
+#  cmap.set_bad(color='k', alpha=1.)
+#  cmap.set_under('k')
+#
+#  v_min = -4
+#  v_max = 2
+#
+#  f, axes = plt.subplots(1, 1, figsize=(6, 6), sharex=False, sharey=False)
+#  ax = axes
+#  im = ax.matshow(np.log10(image_sim), origin='lower', vmin=v_min, vmax=v_max, cmap=cmap, extent=[0, 1, 0, 1])
+#  ax.get_xaxis().set_visible(False)
+#  ax.get_yaxis().set_visible(False)
+#  ax.autoscale(False)
+#
+#  plt.show()
 
 
 ########################## EXTRACT VALUES LIKE TIME DELAYS, VELOCITY DISPERSIONS; THESE ARE THE DATA OF A REAL OBSERVATION
@@ -369,15 +369,15 @@ from lenstronomy.Workflow.fitting_sequence import FittingSequence
 noH0priorFlag = "_"
 
 backup_filename = 'mock_results_NFW'+noH0priorFlag+'uldm2uldm.h5'
-start_from_backup= False
+start_from_backup= True
 
-run_sim = True
+run_sim = False
 
 if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC ###################### CHANGE is start_from_backup = True
-    fitting_kwargs_list = [['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 150, 'n_run': 100, 'walkerRatio': 10, 'sigma_scale': .2,
+    fitting_kwargs_list = [#['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
+            ['MCMC', {'n_burn': 3000, 'n_run': 5000, 'walkerRatio': 10, 'sigma_scale': .2,
                 'backup_filename': backup_filename, 'start_from_backup': start_from_backup}]
     ]
 
@@ -426,7 +426,7 @@ if make_figures == True:
 
 make_chainPlot = False
 make_cornerPlot = True
-reprocess_corner = True
+reprocess_corner = False
 if make_chainPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
@@ -459,7 +459,7 @@ if make_cornerPlot == True:
     # This to make a range for the cornerplot, single numbers are to make a fraction
     # of the whole range, cutting bounds (1 means don't cut anything)
     #  range_ = [1,(1.64,1.70), 1, 1, 1]
-    range_ = [1, 1, 1, 1, 1, 1]
+    range_ = [1, (0,3), 1, 1, (0, 0.16), 1, 1]
 
     kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True,
                      'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
@@ -467,7 +467,8 @@ if make_cornerPlot == True:
 
     mcmc_new_list = []
 
-    labels_new = [r"$ r_{ 200 } $", r"$\rho_{\rm 0, Rs}$", r"$\Sigma_{\rm star}$", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ h0 $"]
+    #  labels_new = [r"$ r_{ 200 } $", r"$\rho_{\rm 0, Rs}$", r"$\Sigma_{\rm star}$", r"$\R_{\rm star}$", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ h0 $"]
+    labels_new = [r"$ R_{\rm NFW} $", r"$\alpha_{\rm NFW}$", r"$\Sigma_{\rm star}$", r"$ R_{\rm star}$", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ h0 $"]
 
     if reprocess_corner == True:
         for i in range(len(samples_mcmc)):
@@ -480,9 +481,9 @@ if make_cornerPlot == True:
             Rs = kwargs_result['kwargs_lens'][0]['Rs']
             cosmo_current = FlatLambdaCDM(H0=h0, Om0=0.3, Ob0=0.0)
             lens_cosmo_current = LensCosmo(z_lens=z_lens, z_source=z_source, cosmo=cosmo_current)
-            rho0_NFW, Rs_NFW, c_NFW, r200_NFW, M200_NFW = lens_cosmo.nfw_angle2physical(Rs_angle=Rs, alpha_Rs=alpha_Rs)
+            rho0_NFW, Rs_NFW, c_NFW, r200_NFW, M200_NFW = lens_cosmo_current.nfw_angle2physical(Rs_angle=Rs, alpha_Rs=alpha_Rs)
 
-            Rs = Rs * c_NFW # r200 in arcseconds
+            #  Rs = Rs * c_NFW # r200 in arcseconds
 
             sigma0 = kwargs_result['kwargs_lens'][2]['sigma0']
             Rs_Hernq = kwargs_result['kwargs_lens'][2]['Rs']
@@ -493,7 +494,8 @@ if make_cornerPlot == True:
             rho0_MSD = rho0_NFW / (1 - kappa_0) # M_sun / Mpc^3 I think...
             sigma0_MSD = sigma0 / (1 - kappa_0)
 
-            mcmc_new_list.append([Rs, rho0_NFW, sigma0, kappa_0, theta_c, h0])
+            #  mcmc_new_list.append([Rs, M200_NFW, sigma0, Rs_Hernq, kappa_0, theta_c, h0])
+            mcmc_new_list.append([Rs, alpha_Rs, sigma0, Rs_Hernq, kappa_0, theta_c, h0])
 
         file_name = 'mock_corner_NFW'+noH0priorFlag+'uldm2uldm.h5'
         try:
