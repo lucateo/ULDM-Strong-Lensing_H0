@@ -371,7 +371,7 @@ print('Final parameters given by MCMC: ', kwargs_result)
 from lenstronomy.Plots import chain_plot
 from lenstronomy.Plots.model_plot import ModelPlot
 
-make_figures = True
+make_figures = False
 if make_figures == True:
     modelPlot = ModelPlot(multi_band_list, kwargs_model_uldm, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
@@ -382,7 +382,7 @@ if make_figures == True:
     f.savefig('Plot_subtract_PLFraction.pdf')
 
 make_chainPlot = False
-make_cornerPlot = False
+make_cornerPlot = True
 reprocess_corner = False
 if make_chainPlot == True:
     # Plot the MonteCarlo
@@ -425,7 +425,7 @@ if make_cornerPlot == True:
 
     mcmc_new_list = []
 
-    labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ h0 $"]
+    labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ H_0 $"]
 
     if reprocess_corner == True:
         for i in range(len(samples_mcmc)):

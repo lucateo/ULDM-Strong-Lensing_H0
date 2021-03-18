@@ -57,33 +57,6 @@ kwargs_psf = {'psf_type': psf_type, 'pixel_size': deltaPix, 'fwhm': fwhm}
 psf_class = PSF(**kwargs_psf)
 
 #################################### MASS FUNCTIONS ##########################
-def phys2ModelParam(m_log10, lambda_factor, theta_E):
-    eV2Joule = 1.6021*10**(-19)
-    hbar = 6.62 * 10**(-34) / (2* np.pi)
-    pc2meter = 3.086 * 10**(16)
-    clight = 3*10**8
-    G_const = 6.67 * 10**(-11)
-    m_sun = 1.989 * 10**(30)
-    m = 10**m_log10 * eV2Joule # in Joule
-    lens_cosmo = LensCosmo(z_lens, z_source, cosmo)
-    D_Lens = lens_cosmo.dd * 10**6 * pc2meter # in meter
-    Sigma_c = lens_cosmo.sigma_crit * 10**(-12) * m_sun / pc2meter**2 # in kg/m^2
-
-    A_Factor = 2 * G_const / clight**2 * Sigma_c * D_Lens * theta_E * const.arcsec
-    z_fit = A_Factor / lambda_factor**2
-    a_fit = 0.23 * np.sqrt(1 + 7.5 * z_fit * np.tanh( 1.5 * z_fit**(0.24)) )
-    b_fit = 1.69 + 2.23/(1 + 2.2 * z_fit)**(2.47)
-    slope = 2*b_fit
-    core_half_factor = np.sqrt(0.5**(-1/slope) -1)
-    theta_c = core_half_factor * clight * hbar / (lambda_factor * a_fit * m * D_Lens * const.arcsec )
-    kappa_0 = lambda_factor**3 * m * np.sqrt(np.pi) * gamma_func(slope - 0.5)
-    kappa_0 = kappa_0 * clight  /(4 * np.pi * Sigma_c * G_const * hbar * a_fit * gamma_func(slope) )
-    M_sol = lambda_factor * clight**3 * hbar * np.sqrt(np.pi) * gamma_func(slope - 1.5)
-    M_sol = M_sol / (G_const * m * a_fit**3 * 4 * gamma_func(slope) ) # in kg
-    M_log10 = np.log10( M_sol/m_sun)
-    return kappa_0, theta_c, slope, M_log10
-
-# You need only 3 parameters, you could use kappa_0 instead of theta_c
 def angles2phys(theta_c, slope, theta_E, h0):
     eV2Joule = 1.6021*10**(-19)
     hbar = 6.62 * 10**(-34) / (2* np.pi)
@@ -103,8 +76,7 @@ def angles2phys(theta_c, slope, theta_E, h0):
 
     z_fit = A_Factor / lambda_factor**2
     a_fit = 0.23 * np.sqrt(1 + 7.5 * z_fit * np.tanh( 1.5 * z_fit**(0.24)) )
-    core_half_factor = np.sqrt(0.5**(-1/slope) -1)
-    m_particle = clight * hbar * core_half_factor / (lambda_factor * a_fit * D_Lens * theta_c * const.arcsec)
+    m_particle = clight * hbar / theta_c / (lambda_factor * a_fit * D_Lens * const.arcsec)
     m_log10 = np.log10( m_particle/ eV2Joule)
 
     M_sol = lambda_factor * clight**3 * hbar * np.sqrt(np.pi) * gamma_func(slope - 1.5)
@@ -114,16 +86,15 @@ def angles2phys(theta_c, slope, theta_E, h0):
 ##############################################################################
 
 
-
 ########################### CHOOSING THE LENS MODELLING STUFF FOR THE MOCK IMAGE #################
 # lensing quantities
 kappa_0 = 0.09
 theta_E = 1.66 * (1 - kappa_0)
-slope = 3.8
+slope = 3.78
 kwargs_pemd = {'theta_E': theta_E, 'gamma': 1.98, 'center_x': 0.0, 'center_y': 0.0, 'e1': -0.2, 'e2': 0.05}  # parameters of the deflector lens model
 kwargs_shear = {'gamma1': 0.05, 'gamma2': -0.02}  # shear values to the source plane
 ################### CHANGE PARAMETERS FOR THE MASS YOU LIKE MOST
-kwargs_uldm = {'kappa_0': kappa_0, 'theta_c': 5.0, 'slope': slope, 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
+kwargs_uldm = {'kappa_0': kappa_0, 'inverse_theta_c': 0.09, 'slope': slope, 'center_x': 0.0, 'center_y': 0.0, }  # parameters of the deflector lens model
 
 # the lens model is a superposition of an elliptical lens model with external shear
 lens_model_list = ['PEMD', 'SHEAR', 'ULDM']
@@ -154,12 +125,6 @@ lens_light_model_list = ['HERNQUIST']
 lens_light_model_class = LightModel(light_model_list=lens_light_model_list)
 kwargs_hernquist = {'amp': 4000, 'Rs': r_eff*0.551, 'center_x': 0, 'center_y': 0}
 kwargs_lens_light = [kwargs_hernquist]
-#phi_G, q = 0.9, 0.9
-#e1, e2 = param_util.phi_q2_ellipticity(phi_G, q)
-#kwargs_sersic_lens = {'amp': 8000, 'R_sersic': 0.4, 'n_sersic': 2., 'e1': e1, 'e2': e2, 'center_x': 0.0, 'center_y': 0}
-#lens_light_model_list = ['SERSIC_ELLIPSE']
-#kwargs_lens_light = [kwargs_sersic_lens]
-#lens_light_model_class = LightModel(light_model_list=lens_light_model_list)
 
 lensEquationSolver = LensEquationSolver(lens_model_class)
 x_image, y_image = lensEquationSolver.findBrightImage(source_x, source_y, kwargs_lens, numImages=4,
@@ -229,34 +194,35 @@ print("the measured relative delays are: ", dt_measured)
 
 
 # observational conditions of the spectroscopic campagne
-R_slit = 1. # slit length in arcsec
-dR_slit = 1.  # slit width in arcsec
-psf_fwhm = 0.7
+check_kinematics = False
+if check_kinematics == True:
+    R_slit = 1. # slit length in arcsec
+    dR_slit = 1.  # slit width in arcsec
+    psf_fwhm = 0.7
 
-kwargs_aperture = {'aperture_type': 'slit', 'length': R_slit, 'width': dR_slit, 'center_ra': 0.05, 'center_dec': 0, 'angle': 0}
-anisotropy_model = 'OM' #  'isotropic'
-aperture_type = 'slit'
+    kwargs_aperture = {'aperture_type': 'slit', 'length': R_slit, 'width': dR_slit, 'center_ra': 0.05, 'center_dec': 0, 'angle': 0}
+    anisotropy_model = 'OM' #  'isotropic'
+    aperture_type = 'slit'
 
-kwargs_galkin_numerics = {#'sampling_number': 10000, # numerical ray-shooting, should converge -> infinity
-                          'interpol_grid_num': 1000,  # numerical interpolation, should converge -> infinity
-                          'log_integration': True,  # log or linear interpolation of surface brightness and mass models
-                           'max_integrate': 100, 'min_integrate': 0.001}  # lower/upper bound of numerical integrals
+    kwargs_galkin_numerics = {#'sampling_number': 10000, # numerical ray-shooting, should converge -> infinity
+                              'interpol_grid_num': 1000,  # numerical interpolation, should converge -> infinity
+                              'log_integration': True,  # log or linear interpolation of surface brightness and mass models
+                               'max_integrate': 100, 'min_integrate': 0.001}  # lower/upper bound of numerical integrals
 
-r_ani = 1.
-r_eff = 0.2
-kwargs_anisotropy = {'r_ani': 1}
-kwargs_seeing = {'psf_type': 'GAUSSIAN', 'fwhm': psf_fwhm}
+    r_ani = 1.
+    r_eff = 0.2
+    kwargs_anisotropy = {'r_ani': 1}
+    kwargs_seeing = {'psf_type': 'GAUSSIAN', 'fwhm': psf_fwhm}
 
-from lenstronomy.Analysis.kinematics_api import KinematicsAPI
-kin_api = KinematicsAPI(z_lens, z_source, kwargs_model, cosmo=cosmo, lens_model_kinematics_bool=[True, False, True],
-                 light_model_kinematics_bool=[True], kwargs_aperture=kwargs_aperture, kwargs_seeing=kwargs_seeing,
-                       anisotropy_model=anisotropy_model, Hernquist_approx=True, kwargs_numerics_galkin=kwargs_galkin_numerics,
-                       sampling_number=40000)
+    from lenstronomy.Analysis.kinematics_api import KinematicsAPI
+    kin_api = KinematicsAPI(z_lens, z_source, kwargs_model, cosmo=cosmo, lens_model_kinematics_bool=[True, False, True],
+                     light_model_kinematics_bool=[True], kwargs_aperture=kwargs_aperture, kwargs_seeing=kwargs_seeing,
+                           anisotropy_model=anisotropy_model, Hernquist_approx=True, kwargs_numerics_galkin=kwargs_galkin_numerics,
+                           sampling_number=40000)
 
-vel_disp = kin_api.velocity_dispersion(kwargs_lens, kwargs_lens_light, kwargs_anisotropy,
-                                    r_eff=r_eff, theta_E=None, kappa_ext=0)
-print(vel_disp, 'velocity dispersion in km/s')
-
+    vel_disp = kin_api.velocity_dispersion(kwargs_lens, kwargs_lens_light, kwargs_anisotropy,
+                                        r_eff=r_eff, theta_E=None, kappa_ext=0)
+    print(vel_disp, 'velocity dispersion in km/s')
 
 
 ############################# NOW THAT WE HAVE THE IMAGE AND THE TIME DELAYS + VELOCITY DISPERSION,
@@ -270,10 +236,10 @@ kwargs_upper_lens = []
 
 ## SPEP model
 fixed_lens.append({})
-kwargs_lens_init.append({'theta_E': 1.5, 'gamma': 2, 'center_x': 0.0, 'center_y': 0, 'e1': 0, 'e2': 0., 'kappa_tilde': 0.05, 'sampled_theta_c': 30.0})
-kwargs_lens_sigma.append({'theta_E': .2, 'e1': 0.1, 'e2': 0.1, 'gamma': 0.1, 'center_x': 0.01, 'center_y': 0.01, 'kappa_tilde': 0.02, 'sampled_theta_c': 25.})
+kwargs_lens_init.append({'theta_E': 1.5, 'gamma': 2, 'center_x': 0.0, 'center_y': 0, 'e1': 0, 'e2': 0., 'kappa_tilde': 0.05, 'sampled_theta_c': 25.0})
+kwargs_lens_sigma.append({'theta_E': .2, 'e1': 0.1, 'e2': 0.1, 'gamma': 0.1, 'center_x': 0.01, 'center_y': 0.01, 'kappa_tilde': 0.02, 'sampled_theta_c': 20.})
 kwargs_lower_lens.append({'theta_E': 0.01, 'e1': -0.5, 'e2': -0.5, 'gamma': 1.5, 'center_x': -10, 'center_y': -10, 'kappa_tilde': 0.0001, 'sampled_theta_c': 0.1})
-kwargs_upper_lens.append({'theta_E': 10, 'e1': 0.5, 'e2': 0.5, 'gamma': 2.5, 'center_x': 10, 'center_y': 10, 'kappa_tilde': 0.7, 'sampled_theta_c': 80})
+kwargs_upper_lens.append({'theta_E': 10, 'e1': 0.5, 'e2': 0.5, 'gamma': 2.5, 'center_x': 10, 'center_y': 10, 'kappa_tilde': 0.7, 'sampled_theta_c': 40})
 ## SHEAR model
 fixed_lens.append({'ra_0': 0, 'dec_0': 0})
 kwargs_lens_init.append({'gamma1': 0, 'gamma2': 0})
@@ -386,8 +352,14 @@ class LikelihoodAddition(object):
         sampled_theta_c = kwargs_lens[0]['sampled_theta_c']
         theta_E = kwargs_lens[0]['theta_E']
         kappa_0 = Uldm_PL()._kappa_0_real(theta_E, kappa_tilde, sampled_theta_c)
-        if kappa_0 > 0.5: # If you reach kappa_0 > 0.5, don't consider it
-            logL = -np.inf
+        epsilon = 10**(-7)
+        if 0 < kappa_0 < 0.5:
+            deriv = (Uldm_PL()._kappa_0_real(theta_E, kappa_tilde + epsilon, sampled_theta_c)
+                    - Uldm_PL()._kappa_0_real(theta_E, kappa_tilde - epsilon, sampled_theta_c) )/(2*epsilon)
+            deriv = np.abs(deriv)
+            return logL + np.log(deriv)
+        else:
+            return -np.inf
 
         return logL
 
@@ -431,7 +403,7 @@ if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [#['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 6000, 'n_run': 3000, 'walkerRatio': 10, 'sigma_scale': .2,
+            ['MCMC', {'n_burn': 12000, 'n_run': 5000, 'walkerRatio': 10, 'sigma_scale': .2,
                 'backup_filename': backup_filename, 'start_from_backup': start_from_backup}]
     ]
 
@@ -513,8 +485,8 @@ if make_cornerPlot == True:
     # This to make a range for the cornerplot, single numbers are to make a fraction
     # of the whole range, cutting bounds (1 means don't cut anything)
     #  range_ = [1, 1, 1, (0,30), 1, 1]
-    range_ = [1, 1, 1, 1, 1, 1]
-    range_masses = [1, 1, (-25.9, -24.8), (10.5,13.7), 1]
+    range_ = [1, (1.64, 1.67), 1, 1, 1]
+    range_masses = [1, (1.64, 1.67), 1, 1, 1]
     #  range_masses = [1, 1, 1, 1, 1]
 
     kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True,
@@ -524,9 +496,9 @@ if make_cornerPlot == True:
 
     mcmc_new_list = []
     mcmc_new_list2 = []
-    mcmc_new_list3 = []
 
-    labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ 2b_{\rm slope} $", r"$ h0 $"]
+    #  labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ 2b_{\rm slope} $", r"$ h0 $"]
+    labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ h0 $"]
     labels_new_masses = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \log_{10} m $ [eV]", r"$ \log_{10} M  [M_\odot]$", r"$ h0 $"]
     labels_new_sampled_theta_c = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \tilde{\theta} $", r"$ h0 $"]
 
@@ -542,22 +514,20 @@ if make_cornerPlot == True:
 
             composite_profile = Uldm_PL()
             kappa_0 = composite_profile._kappa_0_real(theta_E_MSD, kappa_tilde, sampled_theta_c)
-            theta_c = composite_profile._half_density_thetac(theta_E_MSD, kappa_tilde, sampled_theta_c)
+            #  theta_c = composite_profile._half_density_thetac(theta_E_MSD, kappa_tilde, sampled_theta_c)
             slope = composite_profile._slope(theta_E_MSD, kappa_tilde,sampled_theta_c)
             kappa_E = composite_profile._kappa_E(theta_E_MSD, kappa_tilde, sampled_theta_c)
             theta_E = theta_E_MSD/(1 - kappa_E)
 
-            m_log10, M_log10 = angles2phys(theta_c, slope, theta_E, h0)
-            mcmc_new_list.append([gamma, theta_E, kappa_0, theta_c, slope, h0])
+            m_log10, M_log10 = angles2phys(sampled_theta_c, slope, theta_E_MSD, h0)
+            mcmc_new_list.append([gamma, theta_E, kappa_0, sampled_theta_c, slope, h0])
             mcmc_new_list2.append([gamma, theta_E, m_log10, M_log10, h0])
-            mcmc_new_list3.append([gamma, theta_E, kappa_0, sampled_theta_c, h0])
 
         file_name = 'mock_corner_PLFraction'+noH0priorFlag+'uldm2uldm.h5'
         try:
             h5file = h5py.File(file_name, 'w')
             h5file.create_dataset("dataset_mock", data=mcmc_new_list)
             h5file.create_dataset("dataset_mock_masses", data=mcmc_new_list2)
-            h5file.create_dataset("dataset_mock_sampled_theta_c", data=mcmc_new_list3)
             h5file.close()
         except:
             print("The h5py stuff went wrong...")
@@ -566,10 +536,9 @@ if make_cornerPlot == True:
         h5file = h5py.File(file_name, 'r')
         mcmc_new_list = h5file['dataset_mock'][:]
         mcmc_new_list2 = h5file['dataset_mock_masses'][:]
-        mcmc_new_list3 = h5file['dataset_mock_sampled_theta_c'][:]
         h5file.close()
 
-    plot = corner.corner(mcmc_new_list, labels=labels_new, range = range_,  **kwargs_corner)
+    plot = corner.corner(mcmc_new_list[:,[0,1,2,3,5]], labels=labels_new, range = range_,  **kwargs_corner)
     file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'uldm2uldm.pdf'
     plot.savefig(file_name)
 
@@ -577,6 +546,3 @@ if make_cornerPlot == True:
     plot = corner.corner(mcmc_new_list2, labels=labels_new_masses, range = range_masses, **kwargs_corner)
     plot.savefig(file_name)
 
-    file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'sampled_theta_c_uldm2uldm.pdf'
-    plot = corner.corner(mcmc_new_list3, labels=labels_new_sampled_theta_c, **kwargs_corner)
-    plot.savefig(file_name)

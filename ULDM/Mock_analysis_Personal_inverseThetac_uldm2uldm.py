@@ -57,7 +57,7 @@ kwargs_psf = {'psf_type': psf_type, 'pixel_size': deltaPix, 'fwhm': fwhm}
 psf_class = PSF(**kwargs_psf)
 
 #################################### MASS FUNCTIONS ##########################
-def angles2phys(theta_c, slope, theta_E, h0):
+def angles2phys(inverse_theta_c, slope, theta_E, h0):
     eV2Joule = 1.6021*10**(-19)
     hbar = 6.62 * 10**(-34) / (2* np.pi)
     pc2meter = 3.086 * 10**(16)
@@ -76,7 +76,7 @@ def angles2phys(theta_c, slope, theta_E, h0):
 
     z_fit = A_Factor / lambda_factor**2
     a_fit = 0.23 * np.sqrt(1 + 7.5 * z_fit * np.tanh( 1.5 * z_fit**(0.24)) )
-    m_particle = clight * hbar * theta_c / (lambda_factor * a_fit * D_Lens * const.arcsec)
+    m_particle = clight * hbar * inverse_theta_c / (lambda_factor * a_fit * D_Lens * const.arcsec)
     m_log10 = np.log10( m_particle/ eV2Joule)
 
     M_sol = lambda_factor * clight**3 * hbar * np.sqrt(np.pi) * gamma_func(slope - 1.5)
@@ -342,12 +342,12 @@ class LikelihoodAddition(object):
         a definition taking as arguments (kwargs_lens, kwargs_source, kwargs_lens_light, kwargs_ps, kwargs_special, kwargs_extinction)
                 and returns a logL (punishing) value.
         """
-        Ddt_sampled =  kwargs_special['D_dt']
-        h0_sampled = 70 * Ddt_reference / Ddt_sampled
-
-        h0_mean = 67.4
-        h0_sigma = 0.5
-        logL = - (h0_sampled - h0_mean)**2 / h0_sigma**2 / 2 + np.log(h0_sampled/Ddt_sampled)
+        #  Ddt_sampled =  kwargs_special['D_dt']
+        #  h0_sampled = 70 * Ddt_reference / Ddt_sampled
+        #
+        #  h0_mean = 67.4
+        #  h0_sigma = 0.5
+        #  logL = - (h0_sampled - h0_mean)**2 / h0_sigma**2 / 2 + np.log(h0_sampled/Ddt_sampled)
 
         kappa_tilde = kwargs_lens[0]['kappa_tilde']
         sampled_theta_c = kwargs_lens[0]['sampled_theta_c']
@@ -358,7 +358,8 @@ class LikelihoodAddition(object):
             deriv = (Uldm_PL()._kappa_0_real(theta_E, kappa_tilde + epsilon, sampled_theta_c)
                     - Uldm_PL()._kappa_0_real(theta_E, kappa_tilde - epsilon, sampled_theta_c) )/(2*epsilon)
             deriv = np.abs(deriv)
-            return logL + np.log(deriv)
+            #  return logL + np.log(deriv)
+            return np.log(deriv)
         else:
             return -np.inf
 logL_addition = LikelihoodAddition()
@@ -389,8 +390,8 @@ mpi = False  # MPI possible, but not supported through that notebook.
 
 from lenstronomy.Workflow.fitting_sequence import FittingSequence
 ##############################################CHANGE FOR H0 PRIOR CHANGE #####################################################
-#  noH0priorFlag = "_NEW_noH0Prior_"
-noH0priorFlag = "_NEW_Inverse_theta_c_"
+#  noH0priorFlag = "_NEW_Inverse_theta_c_"
+noH0priorFlag = "_NEW_Inverse_theta_c_noH0Prior"
 
 backup_filename = 'mock_results_PLFraction'+noH0priorFlag+'uldm2uldm.h5'
 start_from_backup= True
@@ -401,7 +402,7 @@ if run_sim == True:
     fitting_seq = FittingSequence(kwargs_data_joint, kwargs_model_uldm, kwargs_constraints, kwargs_likelihood, kwargs_params)
     # Do before the PSO to reach a good starting value for MCMC
     fitting_kwargs_list = [#['PSO', {'sigma_scale': 1., 'n_particles': 200, 'n_iterations': 200}],
-            ['MCMC', {'n_burn': 29000, 'n_run': 4000, 'walkerRatio': 10, 'sigma_scale': .2,
+            ['MCMC', {'n_burn': 33000, 'n_run': 5000, 'walkerRatio': 10, 'sigma_scale': .2,
                 'backup_filename': backup_filename, 'start_from_backup': start_from_backup}]
     ]
 
@@ -483,13 +484,14 @@ if make_cornerPlot == True:
     # This to make a range for the cornerplot, single numbers are to make a fraction
     # of the whole range, cutting bounds (1 means don't cut anything)
     #  range_ = [1, 1, 1, (0,30), 1, 1]
-    range_ = [1, (1.64, 1.665), 1, (0,50), 1, 1]
-    range_2 = [1, (1.64, 1.665), 1, (0,60), 1]
-    range_sampled = [1, (1.64,1.665), 1, (0, 0.25), 1]
+    range_ = [1, (1.63, 1.665), 1, (0,50), 1, 1]
+    range_2 = [1, (1.63, 1.665), 1, (0,60), 1]
+    #  range_sampled = [1, (1.635,1.67), 1, (0, 0.35), 1]
+    range_sampled = [1, (1.615,1.68), 1, (0,3), 1]
     #  range_masses = [1, 1, (-25.9, -24.8), (10.5,13.7), 1]
-    range_masses = [1, (1.64,1.665), 1, 1, 1]
+    range_masses = [1, (1.64,1.665), (-27,-24), (10,16), 1]
 
-    kwargs_corner = {'bins': 30, 'plot_datapoints': False, 'show_titles': True,
+    kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True,
                      'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
                      'fill_contours': True, 'alpha': 0.8 #, 'range': range_
                      }
@@ -501,7 +503,7 @@ if make_cornerPlot == True:
     labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ 2b_{\rm slope} $", r"$ h0 $"]
     labels_new2 = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ h0 $"]
     labels_new_masses = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \log_{10} m $ [eV]", r"$ \log_{10} M  [M_\odot]$", r"$ h0 $"]
-    labels_new_sampled_theta_c = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \tilde{\theta} $", r"$ h0 $"]
+    labels_new_sampled_theta_c = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ 1/\theta_{\rm c} $", r"$ H_0 $"]
     labels_new_trial = [r"$ m $", r"$ m M $", r"$ m \theta $", r"$ M \theta^2 $", r"$ \theta \theta^2 $"]
 
     if reprocess_corner == True:
@@ -522,7 +524,7 @@ if make_cornerPlot == True:
             theta_E = theta_E_MSD/(1 - kappa_E)
 
             m_log10, M_log10 = angles2phys(sampled_theta_c, slope, theta_E_MSD, h0)
-            mcmc_new_list.append([gamma, theta_E, kappa_0, theta_c, slope, h0])
+            mcmc_new_list.append([gamma, theta_E, kappa_0, theta_c, h0])
             mcmc_new_list2.append([gamma, theta_E, m_log10, M_log10, h0])
             mcmc_new_list3.append([gamma, theta_E, kappa_0, sampled_theta_c, h0])
 
@@ -544,7 +546,7 @@ if make_cornerPlot == True:
         h5file.close()
 
     #  plot = corner.corner(mcmc_new_list, labels=labels_new, range = range_, **kwargs_corner)
-    plot = corner.corner(mcmc_new_list[:,[0,1,2,3,5]], labels=labels_new2, range = range_2, **kwargs_corner)
+    plot = corner.corner(mcmc_new_list, labels=labels_new2, range = range_2, **kwargs_corner)
     file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'uldm2uldm.pdf'
     plot.savefig(file_name)
 
@@ -564,6 +566,6 @@ if make_cornerPlot == True:
     #  plt.hist(mcmc_new_list2[:,2], bins=50, range = (-26,-24.5), weights = mcmc_new_list[:,3]* mcmc_new_list[:,3])
     #  plt.show()
 
-    #  print('Quantile for inverse theta_c', np.quantile(mcmc_new_list3[:,3] , 0.95))
+    print('Quantile for inverse theta_c', np.quantile(mcmc_new_list3[:,3] , 0.95))
 
 
