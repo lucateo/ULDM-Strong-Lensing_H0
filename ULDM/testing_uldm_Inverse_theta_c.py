@@ -12,7 +12,7 @@ from lenstronomy.LensModel.Profiles.uldm_pl import Uldm_PL
 from scipy.special import hyp2f1
 from mpmath import hyp3f2
 from scipy.special import gamma as gamma_func
-
+from scipy.optimize import fsolve
 import scipy.integrate as integrate
 
 # specify the choice of lens models #
@@ -84,12 +84,14 @@ def angles2phys(theta_c, slope, theta_E):
 
     kappa_0 = lambda_factor**3 * np.sqrt(np.pi) * m_particle * gamma_func(slope - 0.5) * clight / (4 * np.pi * G_const * hbar * Sigma_c * a_fit *  gamma_func(slope))
     return kappa_0, z_fit, m_log10, M_log10, lambda_factor
-##############################################################################
 
+#  def kappa_02kappa_tilde(theta_E, slope, inverse_theta_c):
+
+##############################################################################
 # define parameter values of lens models
-kappa_tilde = 0.067
-sampled_theta_c = 0.15
-theta_E = 1.485
+kappa_tilde = 0.051
+sampled_theta_c = 0.09
+theta_E = 1.51
 gamma = 1.98
 e1 = 0.1
 e2 = 0.1
@@ -142,34 +144,55 @@ print('fermat potential: ',fermat_lens)
 dt = lensModel.arrival_time(.9, .4, kwargs_lens)
 print('arrival time ',dt)
 
-#  def log_prob(x):
-#      if 0 < composite_lens._kappa_0_real(theta_E, x[0], x[1]) < 0.5 and 0<x[1]<10:
-#          epsilon = 10**(-6)
-#          deriv1 = (composite_lens._kappa_0_real(theta_E, x[0] + epsilon, x[1]) - composite_lens._kappa_0_real(theta_E, x[0] - epsilon, x[1]) )/(2*epsilon)
-#          #  deriv2 = (composite_lens._kappa_0_real(theta_E, x[0], x[1] + epsilon) - composite_lens._kappa_0_real(theta_E, x[0], x[1] - epsilon) )/(2*epsilon)
-#          deriv = np.abs(deriv1 )
-#          return np.log(deriv) #- 2 * np.log(x[1])
-#      else:
-#          return -np.inf
-#
-#  nwalkers = 20
-#  ndim = 2
-#  p0 = 0.05 * np.random.rand(nwalkers, ndim)
-#  import emcee
-#  sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob)
-#  state = sampler.run_mcmc(p0, 500)
-#  sampler.reset()
-#  sampler.run_mcmc(state, 2000)
-#
-#  samples = sampler.get_chain(flat=True)
-#  plt.hist(composite_lens._kappa_0_real(theta_E, samples[:,0], samples[:,1]), 100, range=(0,0.5), color="k", histtype="step")
-#
-#  # Trying uniform distribution
-#  #  samples = np.random.uniform(0.001, 0.5, 2000)
-#  #  epsilon = 10**(-4) * np.ones(2000)
-#  #  deriv = (composite_lens._kappa_0_real(theta_E, samples + epsilon, sampled_theta_c) - composite_lens._kappa_0_real(theta_E, samples - epsilon, sampled_theta_c) )*0.5*10**4
-#  #  samples_kappa0 = composite_lens._kappa_0_real(theta_E, samples/deriv, sampled_theta_c)
-#  #  plt.hist(samples_kappa0, range=(0,0.5))
-#  plt.show()
+
+######################### MCMC trial #####################################
+def find_tilde_theta(x, *arguments):
+
+    tilde_theta = x
+    kappa_tilde, inverse_theta_c, theta_E = arguments
+    kappa_E = Uldm_PL()._kappa_E(theta_E, tilde_theta, kappa_tilde, inverse_theta_c)
+    eq1 = (1 - kappa_E)*theta_E - tilde_theta
+    return eq1
+
+def tilde_theta_finder(kappa_tilde, inverse_theta_c, theta_E):
+
+    arguments = (kappa_tilde, inverse_theta_c, theta_E)
+    tilde_theta = fsolve(find_tilde_theta, 1.6, args=arguments)
+    return tilde_theta[0]
+
+theta_E = 1.66
+def log_prob(x):
+    theta_E_MSD = tilde_theta_finder(x[0], x[1], theta_E)
+    if 0.01 < composite_lens._kappa_E(theta_E, theta_E_MSD, x[0], x[1]) < 0.5 and 0.001<=x[1]<10:
+        epsilon = 10**(-6)
+        deriv = (composite_lens._kappa_E(theta_E, theta_E_MSD, x[0] + epsilon, x[1])
+                - composite_lens._kappa_E(theta_E, theta_E_MSD, x[0] - epsilon, x[1]) )/(2*epsilon)
+        deriv = np.abs(deriv)
+        return -np.abs(np.log(deriv)) #- 2 * np.log(x[1])
+    else:
+        return -np.inf
+
+nwalkers = 20
+ndim = 2
+p0 = 0.05 * np.random.rand(nwalkers, ndim)
+import emcee
+sampler = emcee.EnsembleSampler(nwalkers, ndim, log_prob)
+state = sampler.run_mcmc(p0, 500)
+sampler.reset()
+sampler.run_mcmc(state, 2000)
+
+samples = sampler.get_chain(flat=True)
+theta_E_MSD_samples = []
+for i in range(len(samples[:,0])):
+    theta_E_MSD_samples.append(tilde_theta_finder(samples[i,0], samples[i,1], theta_E))
+plt.hist(composite_lens._kappa_E(theta_E, theta_E_MSD_samples, samples[:,0], samples[:,1]), 100, range=(0,0.5), color="k", histtype="step")
+
+# Trying uniform distribution
+#  samples = np.random.uniform(0.001, 0.5, 2000)
+#  epsilon = 10**(-4) * np.ones(2000)
+#  deriv = (composite_lens._kappa_0_real(theta_E, samples + epsilon, sampled_theta_c) - composite_lens._kappa_0_real(theta_E, samples - epsilon, sampled_theta_c) )*0.5*10**4
+#  samples_kappa0 = composite_lens._kappa_0_real(theta_E, samples/deriv, sampled_theta_c)
+#  plt.hist(samples_kappa0, range=(0,0.5))
+plt.show()
 
 

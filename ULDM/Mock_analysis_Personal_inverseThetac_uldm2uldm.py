@@ -376,7 +376,7 @@ kwargs_likelihood = {'check_bounds': True,
 ##############################################CHANGE FOR H0 PRIOR CHANGE #####################################################
                      'custom_logL_addition': logL_addition
                              }
-# kwargs_data contains the image arraay
+# kwargs_data contains the image array
 image_band = [kwargs_data, kwargs_psf, kwargs_numerics]
 multi_band_list = [image_band]
 kwargs_data_joint = {'multi_band_list': multi_band_list, 'multi_band_type': 'multi-linear',
@@ -443,15 +443,18 @@ make_figures = False
 if make_figures == True:
     modelPlot = ModelPlot(multi_band_list, kwargs_model_uldm, kwargs_result, arrow_size=0.02, cmap_string="gist_heat")
     f, axes = modelPlot.plot_main()
-    f.savefig('Plot_main_PL.png')
+    f.savefig('Plot_main_PL.pdf')
+    #  f, axes = modelPlot.reconstruction_all_bands()
+    #  f.savefig('Plot_main_PLFraction.pdf')
     f, axes = modelPlot.plot_separate()
-    f.savefig('Plot_separate_PL.png')
+    f.savefig('Plot_separate_PL.pdf')
     f, axes = modelPlot.plot_subtract_from_data_all()
-    f.savefig('Plot_subtract_PL.png')
+    f.savefig('Plot_subtract_PL.pdf')
 
 make_chainPlot = False
 make_cornerPlot = True
-reprocess_corner = False
+reprocess_corner = True
+cut_theta_c = True
 if make_chainPlot == True:
     # Plot the MonteCarlo
     for i in range(len(chain_list)):
@@ -483,17 +486,21 @@ if make_cornerPlot == True:
 
     # This to make a range for the cornerplot, single numbers are to make a fraction
     # of the whole range, cutting bounds (1 means don't cut anything)
-    #  range_ = [1, 1, 1, (0,30), 1, 1]
     range_ = [1, (1.63, 1.665), 1, (0,50), 1, 1]
     range_2 = [1, (1.63, 1.665), 1, (0,60), 1]
     #  range_sampled = [1, (1.635,1.67), 1, (0, 0.35), 1]
-    range_sampled = [1, (1.615,1.68), 1, (0,3), 1]
+    range_sampled = [1, (1.615,1.68), 1, (0,0.35), 1]
     #  range_masses = [1, 1, (-25.9, -24.8), (10.5,13.7), 1]
     range_masses = [1, (1.64,1.665), (-27,-24), (10,16), 1]
 
-    kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True,
+    theta_E_truth = 1.66 * (1 - 0.09) / (1 - 0.09*(1 + (1.66*0.09)**2)**(0.5 - 3.78) )
+    truths = [1.98, theta_E_truth, 0.09, 0.09, 67.4]
+    kappa_E_real = Uldm_PL()._kappa_E(1.65, 1.51, 0.051, 0.09)
+    truths_kappa_E = [1.98, 1.65, 0.09, kappa_E_real, 67.4]
+    # title_kwargs and label_kwarks can be used to change fontsizes
+    kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True, 'title_kwargs': dict(fontsize = 18),
                      'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
-                     'fill_contours': True, 'alpha': 0.8 #, 'range': range_
+                     'fill_contours': True, 'alpha': 0.8  #, 'range': range_
                      }
 
     mcmc_new_list = []
@@ -501,9 +508,9 @@ if make_cornerPlot == True:
     mcmc_new_list3 = []
 
     labels_new = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ 2b_{\rm slope} $", r"$ h0 $"]
-    labels_new2 = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ \theta_{\rm c} $", r"$ h0 $"]
+    labels_new2 = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm E} $", r"$ 1/\theta_{\rm c} $", r"$ H_0 $"]
     labels_new_masses = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \log_{10} m $ [eV]", r"$ \log_{10} M  [M_\odot]$", r"$ h0 $"]
-    labels_new_sampled_theta_c = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\rm c} $", r"$ 1/\theta_{\rm c} $", r"$ H_0 $"]
+    labels_new_sampled_theta_c = [r"$\gamma$", r"$ \theta_{\rm E} $", r"$ \kappa_{\lambda}(0) $", r"$ 1/\theta_{\rm c} $", r"$ H_0 $"]
     labels_new_trial = [r"$ m $", r"$ m M $", r"$ m \theta $", r"$ M \theta^2 $", r"$ \theta \theta^2 $"]
 
     if reprocess_corner == True:
@@ -520,19 +527,20 @@ if make_cornerPlot == True:
             kappa_0 = composite_profile._kappa_0_real(theta_E_MSD, kappa_tilde, sampled_theta_c)
             theta_c = 1/sampled_theta_c
             slope = composite_profile._slope(theta_E_MSD, kappa_tilde,sampled_theta_c)
-            kappa_E = composite_profile._kappa_E(theta_E_MSD, kappa_tilde, sampled_theta_c)
+            kappa_E = composite_profile._kappa_E(1.66, theta_E_MSD, kappa_tilde, sampled_theta_c)
             theta_E = theta_E_MSD/(1 - kappa_E)
 
             m_log10, M_log10 = angles2phys(sampled_theta_c, slope, theta_E_MSD, h0)
-            mcmc_new_list.append([gamma, theta_E, kappa_0, theta_c, h0])
-            mcmc_new_list2.append([gamma, theta_E, m_log10, M_log10, h0])
+            mcmc_new_list.append([gamma, theta_E, kappa_E, sampled_theta_c, h0])
             mcmc_new_list3.append([gamma, theta_E, kappa_0, sampled_theta_c, h0])
+            if cut_theta_c == True and sampled_theta_c < 0.3:
+                mcmc_new_list2.append([gamma, theta_E, kappa_0, sampled_theta_c, h0])
 
         file_name = 'mock_corner_PLFraction'+noH0priorFlag+'uldm2uldm.h5'
         try:
             h5file = h5py.File(file_name, 'w')
             h5file.create_dataset("dataset_mock", data=mcmc_new_list)
-            h5file.create_dataset("dataset_mock_masses", data=mcmc_new_list2)
+            h5file.create_dataset("dataset_mock_cut_theta_c", data=mcmc_new_list2)
             h5file.create_dataset("dataset_mock_sampled_theta_c", data=mcmc_new_list3)
             h5file.close()
         except:
@@ -541,21 +549,25 @@ if make_cornerPlot == True:
         file_name = 'mock_corner_PLFraction'+noH0priorFlag+'uldm2uldm.h5'
         h5file = h5py.File(file_name, 'r')
         mcmc_new_list = h5file['dataset_mock'][:]
-        mcmc_new_list2 = h5file['dataset_mock_masses'][:]
+        mcmc_new_list2 = h5file['dataset_mock_cut_theta_c'][:]
         mcmc_new_list3 = h5file['dataset_mock_sampled_theta_c'][:]
         h5file.close()
 
     #  plot = corner.corner(mcmc_new_list, labels=labels_new, range = range_, **kwargs_corner)
-    plot = corner.corner(mcmc_new_list, labels=labels_new2, range = range_2, **kwargs_corner)
-    file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'uldm2uldm.pdf'
+    plot = corner.corner(mcmc_new_list, labels=labels_new2, range = range_sampled, truths = truths_kappa_E,**kwargs_corner)
+    file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'_sampled_kappa_E_uldm2uldm.pdf'
+    for ax in plot.get_axes(): # Workaround to change the number fontsize
+        ax.tick_params(axis='both', labelsize=14)
     plot.savefig(file_name)
-
-    file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'masses_uldm2uldm.pdf'
-    plot = corner.corner(mcmc_new_list2, labels=labels_new_masses, range = range_masses, **kwargs_corner)
-    plot.savefig(file_name)
+    if cut_theta_c == True:
+        file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'_cut_theta_c_uldm2uldm.pdf'
+        plot = corner.corner(mcmc_new_list2, labels=labels_new_sampled_theta_c, range = range_sampled, **kwargs_corner)
+        plot.savefig(file_name)
 
     file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'sampled_theta_c_uldm2uldm.pdf'
-    plot = corner.corner(mcmc_new_list3, labels=labels_new_sampled_theta_c, range= range_sampled, **kwargs_corner)
+    plot = corner.corner(mcmc_new_list3, labels=labels_new_sampled_theta_c, range= range_sampled, truths = truths, **kwargs_corner)
+    for ax in plot.get_axes(): # Workaround to change the number fontsize
+    	ax.tick_params(axis='both', labelsize=14)
     plot.savefig(file_name)
 
     #  plt.clf()
@@ -566,6 +578,6 @@ if make_cornerPlot == True:
     #  plt.hist(mcmc_new_list2[:,2], bins=50, range = (-26,-24.5), weights = mcmc_new_list[:,3]* mcmc_new_list[:,3])
     #  plt.show()
 
-    print('Quantile for inverse theta_c', np.quantile(mcmc_new_list3[:,3] , 0.95))
+    #  print('Quantile for inverse theta_c', np.quantile(mcmc_new_list3[:,3] , 0.95))
 
 

@@ -418,10 +418,11 @@ if make_cornerPlot == True:
     # of the whole range, cutting bounds (1 means don't cut anything)
     #  range_ = [1,(1.64,1.70), 1, 1, 1]
     range_ = [1, 1, 1]
+    truths = [1.98, 1.655, 67.4]
 
-    kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True,
+    kwargs_corner = {'bins': 20, 'plot_datapoints': False, 'show_titles': True, 'title_kwargs': dict(fontsize = 18),
                      'label_kwargs': dict(fontsize=20), 'smooth': 0.5, 'levels': [0.68,0.95],
-                     'fill_contours': True, 'alpha': 0.8, 'range': range_}
+                     'fill_contours': True, 'alpha': 0.8, 'range': range_, 'truths': truths}
 
     mcmc_new_list = []
 
@@ -454,6 +455,8 @@ if make_cornerPlot == True:
         h5file.close()
 
     plot = corner.corner(mcmc_new_list, labels=labels_new, **kwargs_corner)
+    for ax in plot.get_axes(): # Workaround to change the number fontsize
+        ax.tick_params(axis='both', labelsize=14)
     file_name = 'cornerPlot_PLFraction'+noH0priorFlag+'uldm2pl.pdf'
     plot.savefig(file_name)
 

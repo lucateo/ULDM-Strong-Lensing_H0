@@ -115,7 +115,7 @@ def angles2phys2(inverse_theta_c, slope, theta_E, h0):
 
 # define parameter values of lens models
 kappa_tilde = 0.055
-sampled_theta_c = 0.09
+sampled_theta_c = 0.17
 theta_E = 1.51
 gamma = 1.98
 e1 = 0.1
@@ -124,7 +124,7 @@ center_x = 0
 center_y = 0
 kwargs_lens = {'theta_E': theta_E, 'gamma': gamma, 'e1': e1, 'e2': e2, 'kappa_tilde': kappa_tilde, 'sampled_theta_c' : sampled_theta_c, 'center_x': center_x, 'center_y': center_y}
 kwargs_lens = [kwargs_lens]
-print(angles2phys2(0.09, 3.78, theta_E, 67.4 ))
+print(angles2phys2(0.17, 3.78, theta_E, 67.4 ))
 print(phys2ModelParam(-25.01631,0.0016619,theta_E))
 
 composite_lens = Uldm_PL()
