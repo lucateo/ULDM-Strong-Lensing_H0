@@ -35,18 +35,15 @@ Authors
 
 Citations
 ---------
-To cite our work,
+To cite our work::
 
-```
+  @article{Blum:2020,
+      author = "Blum, Kfir and Teodori, Luca",
+      archivePrefix = "arXiv",
+      title = "{Ultralight axion cores in gravitational lensing time delays}",
+      year = "2021"
+  }
 
-@article{Blum:2020,
-    author = "Blum, Kfir and Teodori, Luca",
-    archivePrefix = "arXiv",
-    title = "{Ultralight axion cores in gravitational lensing time delays}",
-    year = "2021"
-}
-
-```
 
 
 
