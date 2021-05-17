@@ -1,18 +1,25 @@
-Ultralight axion cores in gravitational lensing time delays
+Gravitational lensing H_0 tension from ultralight axion galactic cores
 ==============================
 
-This repository hosts the programs needed to obtain the results showed in the paper
-**Ultralight axion cores in gravitational lensing time delays** by Kfir Blum and Luca Teodori.
+This repository hosts the programs needed to obtain some of the results showed in the paper
+**Gravitational lensing H_0 tension from ultralight axion galactic cores** by Kfir Blum and Luca Teodori.
 We used the `lenstronomy <https://github.com/sibirrer/lenstronomy>`_ package to perform our analysis.
 
 Abstract
 --------
-We consider the possibility that the cored ground state ("soliton") of ultralight dark matter (ULDM)
-is responsible for the mismatch between the value of H_0 deduced from the cosmic microwave
-background to that deduced from quasar time delays in galaxy lensing.
-
-Main Results
--------
+Gravitational lensing time delays offer an avenue to measure the Hubble parameter H_0, with some
+analyses suggesting a tension with early-type probes of H_0. The lensing measurements must mitigate
+systematic uncertainties due to the mass modelling of lens galaxies. In particular, a core component in
+the lens density profile would form an approximate local mass sheet degeneracy (MSD) and could bias
+H 0 in the right direction to resolve the lensing tension. We consider ultralight dark matter (ULDM)
+as a possible physical mechanism to generate such galactic cores. We show that cores of roughly the
+required properties could arise naturally if an ultralight axion of mass m \sim 10^−25 eV makes up a fraction
+of order ten percent of the total cosmological dark matter density. A relic abundance of this order of
+magnitude could come from vacuum misalignment. Stellar kinematics measurements of well-resolved
+massive galaxies (including the Milky Way) may offer a way to test the scenario. Kinematics analyses
+aiming to test the core hypothesis in massive elliptical lens galaxies should not, in general, adopt the
+perfect MSD limit, as ignoring the finite extent of an actual physical core could lead to significant
+systematic errors.
 
 
 Notebooks
@@ -20,8 +27,7 @@ Notebooks
 For fast visualization and understanding of how we obtained our results,
 we prepared dedicated jupyter notebooks:
 
-* ``galaxy_plots.ipynb``: Showing the ULDM soliton parameter space allowed by lensing data
-* ``Velocity_dispersion.ipynb``: Showing the velocity dispersion influence of a soliton core
+* ``Velocity_dispersion.ipynb``: Showing the velocity dispersion influence of a core
 * ``Mock_analysis_uldm2PL.ipynb``: Parameter inference by using a power law model for a mock lens obtained with a power law + soliton model.
 * ``Mock_analysis_uldm2uldm_No_H0_prior.ipynb``: Parameter inference by using a power law + soliton
   model with flat prior on the Hubble constant for a mock lens obtained with a power law + soliton model.
@@ -37,10 +43,10 @@ Citations
 ---------
 To cite our work::
 
-  @article{Blum:2020,
+  @article{Blum:2021,
       author = "Blum, Kfir and Teodori, Luca",
       archivePrefix = "arXiv",
-      title = "{Ultralight axion cores in gravitational lensing time delays}",
+      title = "{Gravitational lensing H0 tension from ultralight axion galactic cores}",
       year = "2021"
   }
 
