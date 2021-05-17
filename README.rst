@@ -24,7 +24,7 @@ systematic errors.
 
 Notebooks
 ---------
-For fast visualization and understanding of how we obtained our results,
+For understanding on how we obtained our results,
 we prepared dedicated jupyter notebooks:
 
 * ``Velocity_dispersion.ipynb``: Showing the velocity dispersion influence of a core
