@@ -44,6 +44,7 @@ To cite our work::
   @article{Blum:2021,
       author = "Blum, Kfir and Teodori, Luca",
       archivePrefix = "arXiv",
+      eprint = "2105.10873",
       title = "{Gravitational lensing H0 tension from ultralight axion galactic cores}",
       year = "2021"
       primaryClass={astro-ph.CO}
