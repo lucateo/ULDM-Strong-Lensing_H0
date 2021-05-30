@@ -41,13 +41,14 @@ Citations
 ---------
 To cite our work::
 
-  @article{Blum:2021,
+  @article{Blum:2021oxj,
       author = "Blum, Kfir and Teodori, Luca",
-      archivePrefix = "arXiv",
+      title = "{Gravitational lensing $H_0$ tension from ultralight axion galactic cores}",
       eprint = "2105.10873",
-      title = "{Gravitational lensing H0 tension from ultralight axion galactic cores}",
+      archivePrefix = "arXiv",
+      primaryClass = "astro-ph.CO",
+      month = "5",
       year = "2021"
-      primaryClass={astro-ph.CO}
   }
 
 
