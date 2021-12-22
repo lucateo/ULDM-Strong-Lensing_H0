@@ -47,7 +47,11 @@ To cite our work::
       eprint = "2105.10873",
       archivePrefix = "arXiv",
       primaryClass = "astro-ph.CO",
-      month = "5",
+      doi = "10.1103/PhysRevD.104.123011",
+      journal = "Phys. Rev. D",
+      volume = "104",
+      number = "12",
+      pages = "123011",
       year = "2021"
   }
 
